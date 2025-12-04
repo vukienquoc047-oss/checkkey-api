@@ -4,15 +4,17 @@
   <meta charset="UTF-8" />
   <title>Tạo License Key</title>
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Popup đẹp -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
+
 <body>
   <div class="page-shell">
     <div class="card">
       <div class="flex-between">
         <div class="card-header" style="text-align:left;margin-bottom:16px;">
-          <div class="badge">
-            🪪 Tạo mới
-          </div>
+          <div class="badge">🪪 Tạo mới</div>
           <h1 class="card-title" style="font-size:1.4rem;">Tạo License Key</h1>
           <p class="card-subtitle">
             Chọn thời hạn, số lượng và ghi chú cho lô key sẽ tạo.
@@ -31,82 +33,75 @@
             <option value="90d">90 ngày</option>
             <option value="365d">365 ngày</option>
           </select>
-          <div class="form-hint">Định dạng backend: 1d, 7d, 30d...</div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Số lượng key muốn tạo</label>
-          <input
-            type="number"
-            class="form-control"
-            name="count"
-            min="1"
-            max="999"
-            value="1"
-            required
-          />
+          <input type="number" class="form-control" name="count" min="1" max="999" value="1" required />
         </div>
 
         <div class="form-group">
           <label class="form-label">Ghi chú (tuỳ chọn)</label>
-          <textarea
-            class="form-textarea"
-            name="note"
-            placeholder="Ví dụ: Khách A - gói 30 ngày"
-          ></textarea>
+          <textarea class="form-textarea" name="note" placeholder="Ví dụ: Khách A - gói 30 ngày"></textarea>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-full mt-2">
-          ➕ Tạo Key
-        </button>
+        <button type="submit" class="btn btn-primary btn-full mt-2">➕ Tạo Key</button>
       </form>
     </div>
   </div>
 
-  <div id="toast" class="toast">
-    <span id="toast-text"></span>
-  </div>
-
   <script>
-    const API_BASE = '/api/key';
-
     function goBack() {
-      window.location.href = 'admin.html';
+      window.location.href = "admin.html";
     }
 
-    function showToast(msg) {
-      const t = document.getElementById('toast');
-      document.getElementById('toast-text').textContent = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2600);
-    }
-
-    document.getElementById('createForm').addEventListener('submit', async (e) => {
+    document.getElementById("createForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+
       const form = e.target;
       const payload = {
         duration: form.duration.value,
-        count: Number(form.count.value || 1),
-        note: form.note.value || ''
+        amount: Number(form.count.value || 1),
+        note: form.note.value || ""
       };
 
       try {
-        const res = await fetch(`${API_BASE}/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const res = await fetch("/api/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
 
         const data = await res.json();
+
         if (data.success) {
-          showToast(data.message || 'Tạo key thành công!');
+          const keysHtml = data.keys.map(k => `<div style="padding:4px">${k}</div>`).join("");
+
+          Swal.fire({
+            title: "🎉 Tạo Key thành công!",
+            html: `
+              <div style="text-align:left; font-size:14px">${keysHtml}</div>
+              <button id="copyBtn" class="swal2-confirm swal2-styled" 
+                style="background:#007bff;margin-top:10px;">
+                📋 Copy Key
+              </button>
+            `,
+            showConfirmButton: false,
+            didOpen: () => {
+              document.getElementById("copyBtn").onclick = () => {
+                navigator.clipboard.writeText(data.keys.join(", "));
+                Swal.fire("✔️ Đã copy!", "", "success");
+              };
+            }
+          });
+
           form.reset();
         } else {
-          showToast(data.message || 'Tạo key thất bại!');
+          Swal.fire("Lỗi!", data.message || "Tạo key thất bại!", "error");
         }
+
       } catch (err) {
-        console.error(err);
-        showToast('Lỗi kết nối tới server!');
+        Swal.fire("Lỗi kết nối!", "Không thể kết nối tới server!", "error");
       }
     });
   </script>

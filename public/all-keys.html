@@ -80,10 +80,15 @@
       }
     }
 
-    // LOAD ALL KEYS
-    async function loadAllKeys() {
+    /* ============================================================
+       LOAD ALL KEYS — BẢN FIX HOÀN CHỈNH (CÓ RETRY KHI SERVER SLEEP)
+       ============================================================ */
+    async function loadAllKeys(retry = 5) {
       try {
-        const res = await fetch("/api/keys");
+        const res = await fetch("/api/keys", { cache: "no-store" });
+
+        if (!res.ok) throw new Error("Server not ready");
+
         const data = await res.json();
 
         if (!data.success) {
@@ -113,7 +118,7 @@
             <td>${item.history ? item.history.length : 0} lần</td>
             <td>
               <button class="btn btn-sm btn-primary" onclick="copyKey('${key}')">📋</button>
-              <button class="btn btn-sm btn-danger" onclick="deleteKey('${key}')" style="margin-left:6px;">🗑</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteKey('${key}')">🗑</button>
             </td>
           `;
 
@@ -121,6 +126,11 @@
         });
 
       } catch (err) {
+        if (retry > 0) {
+          console.log("Server đang ngủ → thử lại...", retry);
+          setTimeout(() => loadAllKeys(retry - 1), 1500);
+          return;
+        }
         Swal.fire("Lỗi kết nối!", "Không kết nối được server!", "error");
       }
     }

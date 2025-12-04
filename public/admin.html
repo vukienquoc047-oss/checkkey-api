@@ -14,26 +14,37 @@
         </div>
         <h1 class="card-title">License Admin Panel</h1>
         <p class="card-subtitle">
-          Quản lý key, gia hạn, khoá & theo dõi lịch sử trong một nơi.
+          Quản lý key, gia hạn, khoá, xem tất cả key & theo dõi lịch sử.
         </p>
       </div>
 
       <div class="btn-list">
+
         <button class="btn btn-primary btn-full" onclick="go('create.html')">
           🪪 Tạo License Key
         </button>
+
         <button class="btn btn-primary btn-full" onclick="go('renew.html')">
           ♻️ Gia hạn Key
         </button>
+
         <button class="btn btn-primary btn-full" onclick="go('lock.html')">
           🔒 Khoá Key
         </button>
+
         <button class="btn btn-primary btn-full" onclick="go('history.html')">
           📜 Xem lịch sử
         </button>
+
         <button class="btn btn-primary btn-full" onclick="go('reset-hwid.html')">
           🧬 Reset HWID
         </button>
+
+        <!-- ⭐ NEW: TẤT CẢ KEY -->
+        <button class="btn btn-primary btn-full" onclick="go('all-keys.html')">
+          📚 Tất cả Key
+        </button>
+
         <button class="btn btn-secondary btn-full" onclick="logout()">
           ⏏ Đăng xuất
         </button>
@@ -51,16 +62,16 @@
     }
 
     function showToast(msg) {
-      const t = document.getElementById('toast');
-      document.getElementById('toast-text').textContent = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2500);
+      const t = document.getElementById("toast");
+      document.getElementById("toast-text").textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2500);
     }
 
     function logout() {
-      // Nếu sau này có auth bằng token -> clear ở đây
-      showToast('Đã đăng xuất (fake).');
-      setTimeout(() => window.location.href = 'admin.html', 800);
+      // Sau này có login thật sẽ sửa lại
+      showToast("Đã đăng xuất (fake).");
+      setTimeout(() => window.location.href = "admin.html", 800);
     }
   </script>
 </body>

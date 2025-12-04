@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Khoá License Key</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="card">
+      <div class="flex-between">
+        <div class="card-header" style="text-align:left;margin-bottom:16px;">
+          <div class="badge">🔒 Khoá</div>
+          <h1 class="card-title" style="font-size:1.4rem;">Khoá License Key</h1>
+          <p class="card-subtitle">
+            Khoá key khi phát hiện chia sẻ / dùng sai mục đích.
+          </p>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="goBack()">← Về menu</button>
+      </div>
+
+      <form class="form" id="lockForm">
+        <div class="form-group">
+          <label class="form-label">Key cần khoá</label>
+          <input
+            type="text"
+            class="form-control"
+            name="key"
+            placeholder="VD: ABC-XYZ-123"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Lý do khoá (tuỳ chọn)</label>
+          <textarea
+            class="form-textarea"
+            name="reason"
+            placeholder="VD: Chia sẻ cho nhiều người"
+          ></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-danger btn-full mt-2">
+          🔐 Khoá Key
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">
+    <span id="toast-text"></span>
+  </div>
+
+  <script>
+    const API_BASE = '/api/key';
+
+    function goBack() {
+      window.location.href = 'admin.html';
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    document.getElementById('lockForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const payload = {
+        key: form.key.value.trim(),
+        reason: form.reason.value || ''
+      };
+
+      if (!payload.key) {
+        return showToast('Vui lòng nhập key!');
+      }
+
+      if (!confirm('Xác nhận khoá key này?')) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/lock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Khoá key thành công!');
+          form.reset();
+        } else {
+          showToast(data.message || 'Khoá key thất bại!');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Lỗi kết nối tới server!');
+      }
+    });
+  </script>
+</body>
+</html>

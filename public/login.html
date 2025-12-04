@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Đăng nhập Admin</h1>
+    <input id="user" placeholder="Tài khoản" />
+    <input id="pass" type="password" placeholder="Mật khẩu" />
+    <button onclick="login()">Đăng nhập</button>
+  </div>
+
+  <script>
+    function login() {
+      fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: document.getElementById('user').value,
+          pass: document.getElementById('pass').value
+        })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'success') location.href = '/admin';
+        else alert(d.msg || 'Đăng nhập thất bại');
+      });
+    }
+  </script>
+</body>
+</html>

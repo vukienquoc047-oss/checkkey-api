@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>License Admin Panel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="card">
+      <div class="card-header">
+        <div class="badge">
+          <span>●</span> Bảng điều khiển
+        </div>
+        <h1 class="card-title">License Admin Panel</h1>
+        <p class="card-subtitle">
+          Quản lý key, gia hạn, khoá & theo dõi lịch sử trong một nơi.
+        </p>
+      </div>
+
+      <div class="btn-list">
+        <button class="btn btn-primary btn-full" onclick="go('create.html')">
+          🪪 Tạo License Key
+        </button>
+        <button class="btn btn-primary btn-full" onclick="go('renew.html')">
+          ♻️ Gia hạn Key
+        </button>
+        <button class="btn btn-primary btn-full" onclick="go('lock.html')">
+          🔒 Khoá Key
+        </button>
+        <button class="btn btn-primary btn-full" onclick="go('history.html')">
+          📜 Xem lịch sử
+        </button>
+        <button class="btn btn-primary btn-full" onclick="go('reset-hwid.html')">
+          🧬 Reset HWID
+        </button>
+        <button class="btn btn-secondary btn-full" onclick="logout()">
+          ⏏ Đăng xuất
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">
+    <span id="toast-text"></span>
+  </div>
+
+  <script>
+    function go(page) {
+      window.location.href = page;
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function logout() {
+      // Nếu sau này có auth bằng token -> clear ở đây
+      showToast('Đã đăng xuất (fake).');
+      setTimeout(() => window.location.href = 'admin.html', 800);
+    }
+  </script>
+</body>
+</html>

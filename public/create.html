@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tạo License Key</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="card">
+      <div class="flex-between">
+        <div class="card-header" style="text-align:left;margin-bottom:16px;">
+          <div class="badge">
+            🪪 Tạo mới
+          </div>
+          <h1 class="card-title" style="font-size:1.4rem;">Tạo License Key</h1>
+          <p class="card-subtitle">
+            Chọn thời hạn, số lượng và ghi chú cho lô key sẽ tạo.
+          </p>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="goBack()">← Về menu</button>
+      </div>
+
+      <form class="form" id="createForm">
+        <div class="form-group">
+          <label class="form-label">Thời hạn</label>
+          <select class="form-select" name="duration" required>
+            <option value="1d">1 ngày</option>
+            <option value="7d">7 ngày</option>
+            <option value="30d">30 ngày</option>
+            <option value="90d">90 ngày</option>
+            <option value="365d">365 ngày</option>
+          </select>
+          <div class="form-hint">Định dạng backend: 1d, 7d, 30d...</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Số lượng key muốn tạo</label>
+          <input
+            type="number"
+            class="form-control"
+            name="count"
+            min="1"
+            max="999"
+            value="1"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Ghi chú (tuỳ chọn)</label>
+          <textarea
+            class="form-textarea"
+            name="note"
+            placeholder="Ví dụ: Khách A - gói 30 ngày"
+          ></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full mt-2">
+          ➕ Tạo Key
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">
+    <span id="toast-text"></span>
+  </div>
+
+  <script>
+    const API_BASE = '/api/key';
+
+    function goBack() {
+      window.location.href = 'admin.html';
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const payload = {
+        duration: form.duration.value,
+        count: Number(form.count.value || 1),
+        note: form.note.value || ''
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Tạo key thành công!');
+          form.reset();
+        } else {
+          showToast(data.message || 'Tạo key thất bại!');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Lỗi kết nối tới server!');
+      }
+    });
+  </script>
+</body>
+</html>

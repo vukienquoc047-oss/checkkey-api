@@ -8,6 +8,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
+// =======================
+// LOAD & SAVE DATABASE
+// =======================
 function loadKeys() {
     try {
         return JSON.parse(fs.readFileSync("keys.json", "utf8"));
@@ -29,6 +32,9 @@ function randomString(len) {
     return out;
 }
 
+// =======================
+// API CHECK KEY
+// =======================
 app.post("/api/check", (req, res) => {
     const { key, hwid } = req.body;
     if (!key || !hwid) return res.json({ status: "error", msg: "Thiếu dữ liệu!" });
@@ -36,6 +42,8 @@ app.post("/api/check", (req, res) => {
     const db = loadKeys();
     if (!db[key]) return res.json({ status: "error", msg: "Key không tồn tại!" });
     if (db[key].locked) return res.json({ status: "error", msg: "Key bị khóa!" });
+
+    if (!db[key].history) db[key].history = [];
 
     if (!db[key].hwid) {
         db[key].hwid = hwid;
@@ -54,6 +62,9 @@ app.post("/api/check", (req, res) => {
     return res.json({ status: "success", msg: "Key hợp lệ!" });
 });
 
+// =======================
+// API CREATE KEY
+// =======================
 app.post("/api/create", (req, res) => {
     let { duration, amount, note } = req.body;
     amount = parseInt(amount);
@@ -66,6 +77,7 @@ app.post("/api/create", (req, res) => {
 
     for (let i = 0; i < amount; i++) {
         const key = `${duration}-${randomString(12)}`;
+
         db[key] = {
             duration,
             hwid: null,
@@ -79,6 +91,7 @@ app.post("/api/create", (req, res) => {
                 }
             ]
         };
+
         created.push(key);
     }
 
@@ -86,10 +99,31 @@ app.post("/api/create", (req, res) => {
     res.json({ success: true, keys: created });
 });
 
+// =======================
+// UI ROUTES — FIX CANNOT GET
+// =======================
+function sendPage(res, file) {
+    res.sendFile(path.join(__dirname, "public", file));
+}
+
+app.get("/admin", (req, res) => sendPage(res, "admin.html"));
+app.get("/admin/", (req, res) => sendPage(res, "admin.html"));
+
+app.get("/create", (req, res) => sendPage(res, "create.html"));
+app.get("/create/", (req, res) => sendPage(res, "create.html"));
+
+app.get("/history", (req, res) => sendPage(res, "history.html"));
+app.get("/history/", (req, res) => sendPage(res, "history.html"));
+
+app.get("/all-keys", (req, res) => sendPage(res, "all-keys.html"));
+app.get("/all-keys/", (req, res) => sendPage(res, "all-keys.html"));
+
 app.get("/", (req, res) => res.send("API is running"));
 
-// 🔥 PHẦN QUAN TRỌNG NHẤT CHO RENDER
-const PORT = process.env.PORT;
+// =======================
+// START SERVER FOR RENDER
+// =======================
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
     console.log("Server started on port:", PORT);
 });

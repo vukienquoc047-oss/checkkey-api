@@ -98,6 +98,26 @@ app.get("/api/keys", (req, res) => {
 });
 
 /* =======================================================
+   API XOÁ KEY — DELETE /api/key/delete
+   ======================================================= */
+app.delete("/api/key/delete", (req, res) => {
+    const { key } = req.body;
+    const db = loadKeys();
+
+    if (!db[key]) {
+        return res.json({ success: false, message: "Key không tồn tại!" });
+    }
+
+    delete db[key];
+    saveKeys(db);
+
+    return res.json({
+        success: true,
+        message: "Đã xoá key thành công!"
+    });
+});
+
+/* =======================================================
    UI ROUTES  
    ======================================================= */
 app.get("/", (req, res) => {

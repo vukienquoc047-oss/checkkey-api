@@ -18,7 +18,6 @@ function saveKeys(data) {
     fs.writeFileSync("keys.json", JSON.stringify(data, null, 2));
 }
 
-// Hàm random ký tự
 function randomString(length) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let out = "";
@@ -87,7 +86,19 @@ app.get("/api/key/history", (req, res) => {
 });
 
 /* =======================================================
-   UI ROUTES  
+   🆕 API LẤY TOÀN BỘ KEY — /api/keys
+   ======================================================= */
+app.get("/api/keys", (req, res) => {
+    const db = loadKeys();
+    return res.json({
+        success: true,
+        total: Object.keys(db).length,
+        keys: db
+    });
+});
+
+/* =======================================================
+   UI ROUTES
    ======================================================= */
 app.get("/", (req, res) => {
     res.send("License Admin API OK");
@@ -103,6 +114,13 @@ app.get("/create", (req, res) =>
 
 app.get("/history", (req, res) =>
     res.sendFile(path.join(__dirname, "public", "history.html"))
+);
+
+/* =======================================================
+   🆕 UI ROUTE HIỂN THỊ TẤT CẢ KEY — /all-keys
+   ======================================================= */
+app.get("/all-keys", (req, res) =>
+    res.sendFile(path.join(__dirname, "public", "allkey.html"))
 );
 
 /* =======================================================

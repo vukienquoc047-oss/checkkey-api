@@ -13,9 +13,8 @@ app.use(express.static(path.join(__dirname, "public")));
 // LOAD / SAVE DATABASE
 // =====================
 function loadKeys() {
-    // Nếu file chưa tồn tại, trả về object rỗng
     if (!fs.existsSync("keys.json")) {
-        fs.writeFileSync("keys.json", JSON.stringify({}, null, 2)); 
+        fs.writeFileSync("keys.json", JSON.stringify({}, null, 2));
         return {};
     }
     return JSON.parse(fs.readFileSync("keys.json", "utf8"));
@@ -34,57 +33,47 @@ function randomString(length) {
 }
 
 /* =======================================================
-   API CHECK KEY (QUAN TRỌNG: Dành cho Tool C++)
-   Method: POST
-   Endpoint: /api/check
+   API CHECK KEY (POST /api/check)
    ======================================================= */
 app.post("/api/check", (req, res) => {
     const { key, hwid } = req.body;
-    
-    // Kiểm tra dữ liệu gửi lên
+
     if (!key || !hwid) {
         return res.json({ status: "error", msg: "Thiếu dữ liệu Key hoặc HWID!" });
     }
 
     const db = loadKeys();
 
-    // 1. Kiểm tra Key có tồn tại không
     if (!db[key]) {
         return res.json({ status: "error", msg: "Key không tồn tại hoặc sai!" });
     }
 
-    // 2. Kiểm tra xem Key có bị khoá không
     if (db[key].locked) {
         return res.json({ status: "error", msg: "Key đã bị khoá bởi Admin!" });
     }
 
-    // 3. Xử lý HWID (Chống dùng chung key)
-    
-    // Trường hợp 1: Key mới tinh, chưa dính HWID -> Kích hoạt cho máy này
+    // Trường hợp 1: Key chưa gắn HWID -> gán mới
     if (!db[key].hwid) {
-        db[key].hwid = hwid; // Gắn HWID
-        
-        // Ghi lịch sử
+        db[key].hwid = hwid;
         db[key].history.push({
             time: new Date().toLocaleString(),
             action: "activate",
             note: "Kích hoạt lần đầu",
             status: "success"
         });
-        
-        saveKeys(db); // Lưu database
+
+        saveKeys(db);
         return res.json({ status: "success", msg: "Kích hoạt thành công (Máy mới)!" });
     }
 
-    // Trường hợp 2: Key đã có HWID -> Kiểm tra có đúng máy cũ không
+    // Trường hợp 2: HWID không trùng
     if (db[key].hwid !== hwid) {
         return res.json({ status: "error", msg: "Lỗi: Key này đã kích hoạt trên máy khác!" });
     }
 
-    // Trường hợp 3: Đúng Key, Đúng HWID -> Cho qua
+    // Trường hợp 3: Dùng đúng máy
     return res.json({ status: "success", msg: "Key hợp lệ! Welcome back." });
 });
-
 
 /* =======================================================
    API TẠO KEY — POST /api/create
@@ -101,12 +90,11 @@ app.post("/api/create", (req, res) => {
     const created = [];
 
     for (let i = 0; i < amount; i++) {
-        // Tạo format Key: 1DAY-QUOCDZJ2K2-XXXXX
         const key = `${duration.toUpperCase()}-QUOCDZJ2K2-${randomString(10)}`;
 
         db[key] = {
             duration,
-            hwid: null,     // Chưa kích hoạt thì HWID là null
+            hwid: null,
             locked: false,
             note: note || "",
             history: [
@@ -141,10 +129,7 @@ app.get("/api/key/history", (req, res) => {
     if (!db[key])
         return res.json({ success: false, message: "Key không tồn tại!" });
 
-    return res.json({
-        success: true,
-        data: db[key].history || []
-    });
+    return res.json({ success: true, data: db[key].history || [] });
 });
 
 /* =======================================================
@@ -169,15 +154,11 @@ app.delete("/api/key/delete", (req, res) => {
     delete db[key];
     saveKeys(db);
 
-    return res.json({
-        success: true,
-        message: "Đã xoá key thành công!"
-    });
+    return res.json({ success: true, message: "Đã xoá key thành công!" });
 });
 
 /* =======================================================
-   API RESET HWID (Tùy chọn thêm: Để reset máy cho khách)
-   POST /api/key/reset-hwid
+   API RESET HWID — POST /api/key/reset-hwid
    ======================================================= */
 app.post("/api/key/reset-hwid", (req, res) => {
     const { key } = req.body;
@@ -185,7 +166,7 @@ app.post("/api/key/reset-hwid", (req, res) => {
 
     if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
 
-    db[key].hwid = null; // Xóa HWID cũ
+    db[key].hwid = null;
     db[key].history.push({
         time: new Date().toLocaleString(),
         action: "reset_hwid",
@@ -197,13 +178,10 @@ app.post("/api/key/reset-hwid", (req, res) => {
     return res.json({ success: true, message: "Đã Reset HWID thành công!" });
 });
 
-
 /* =======================================================
-   UI ROUTES  
+   UI ROUTES
    ======================================================= */
 app.get("/", (req, res) => {
-    // Nếu bạn muốn trang chủ hiện Dashboard luôn thì đổi thành:
-    // res.sendFile(path.join(__dirname, "public", "admin.html"));
     res.send("License Admin API is Running...");
 });
 
@@ -224,7 +202,9 @@ app.get("/all-keys", (req, res) =>
 );
 
 /* =======================================================
-   START SERVER
+   START SERVER — CHUẨN RENDER
    ======================================================= */
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log("API running on port:", PORT));
+const PORT = process.env.PORT;  // Render luôn cung cấp PORT
+app.listen(PORT, "0.0.0.0", () => {
+    console.log("API running on port:", PORT);
+});

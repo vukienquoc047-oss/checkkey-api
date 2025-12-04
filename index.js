@@ -6,172 +6,92 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ====== LOAD & SAVE DATA ======
+// Serve public UI
+app.use(express.static(path.join(__dirname, "public")));
+
 function loadKeys() {
-    try {
-        return JSON.parse(fs.readFileSync("keys.json", "utf8"));
-    } catch (err) {
-        return {};
-    }
+    if (!fs.existsSync("keys.json")) return {};
+    return JSON.parse(fs.readFileSync("keys.json", "utf8"));
 }
 
 function saveKeys(data) {
     fs.writeFileSync("keys.json", JSON.stringify(data, null, 2));
 }
 
-// ====== SERVE UI ======
-app.use(express.static(path.join(__dirname, "public")));
+// Hàm tạo ký tự random
+function randomString(length) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let out = "";
+    for (let i = 0; i < length; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+}
 
-app.get("/", (req, res) => {
-    res.send("License Admin UI Running OK");
-});
+// API tạo key
+app.post("/api/create", (req, res) => {
+    let { duration, amount, note } = req.body;
+    amount = parseInt(amount);
 
-app.get("/admin", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "admin.html"));
-});
-
-// ======================================================
-// =============== API TẠO KEY ===========================
-// ======================================================
-
-app.post("/api/key/create", (req, res) => {
-    const { duration, count, note } = req.body;
-    if (!duration || !count) {
+    if (!duration || !amount || amount < 1) {
         return res.json({ success: false, message: "Thiếu dữ liệu!" });
     }
 
-    const keys = loadKeys();
-    const list = [];
+    const db = loadKeys();
+    let createdKeys = [];
 
-    for (let i = 0; i < count; i++) {
-        const key = "KEY-" + Math.random().toString(36).substring(2, 10).toUpperCase();
-        keys[key] = {
+    for (let i = 0; i < amount; i++) {
+        const key = `${duration.toUpperCase()}-QUOCDZJ2K2-${randomString(10)}`;
+
+        db[key] = {
             duration,
             note: note || "",
             hwid: null,
             locked: false,
-            history: []
+            history: [
+                {
+                    time: new Date().toLocaleString(),
+                    action: "create",
+                    note: note || "",
+                    status: "ok"
+                }
+            ]
         };
-        list.push(key);
 
-        keys[key].history.push({
-            time: new Date().toLocaleString(),
-            action: "create",
-            note: note || "",
-            status: "ok"
-        });
+        createdKeys.push(key);
     }
 
-    saveKeys(keys);
-    return res.json({ success: true, message: "Tạo key thành công!", keys: list });
-});
+    saveKeys(db);
 
-// ======================================================
-// =============== API GIA HẠN KEY ========================
-// ======================================================
-
-app.post("/api/key/renew", (req, res) => {
-    const { key, duration } = req.body;
-    const keys = loadKeys();
-
-    if (!keys[key]) return res.json({ success: false, message: "Key không tồn tại!" });
-
-    keys[key].duration = duration;
-    keys[key].history.push({
-        time: new Date().toLocaleString(),
-        action: "renew",
-        note: duration,
-        status: "ok"
+    return res.json({
+        success: true,
+        message: "Tạo key thành công!",
+        keys: createdKeys
     });
-
-    saveKeys(keys);
-    res.json({ success: true, message: "Gia hạn key thành công!" });
 });
 
-// ======================================================
-// =============== API KHÓA KEY ===========================
-// ======================================================
+// API xem lịch sử
+app.get("/api/history", (req, res) => {
+    const db = loadKeys();
+    let list = [];
 
-app.post("/api/key/lock", (req, res) => {
-    const { key } = req.body;
-    const keys = loadKeys();
-
-    if (!keys[key]) return res.json({ success: false, message: "Key không tồn tại!" });
-
-    keys[key].locked = true;
-    keys[key].history.push({
-        time: new Date().toLocaleString(),
-        action: "lock",
-        note: "Khoá key",
-        status: "locked"
-    });
-
-    saveKeys(keys);
-    res.json({ success: true, message: "Khóa key thành công!" });
-});
-
-// ======================================================
-// =============== API RESET HWID ========================
-// ======================================================
-
-app.post("/api/key/reset-hwid", (req, res) => {
-    const { key } = req.body;
-    const keys = loadKeys();
-
-    if (!keys[key]) return res.json({ success: false, message: "Key không tồn tại!" });
-
-    keys[key].hwid = null;
-    keys[key].history.push({
-        time: new Date().toLocaleString(),
-        action: "reset_hwid",
-        note: "Reset HWID",
-        status: "ok"
-    });
-
-    saveKeys(keys);
-    res.json({ success: true, message: "Reset HWID thành công!" });
-});
-
-// ======================================================
-// =============== API LỊCH SỬ ============================
-// ======================================================
-
-app.get("/api/key/history", (req, res) => {
-    const { key } = req.query;
-    const keys = loadKeys();
-
-    if (!keys[key]) return res.json({ success: false, message: "Key không tồn tại!" });
-
-    return res.json({ success: true, data: keys[key].history });
-});
-
-// ======================================================
-// =============== API CHECK KEY CLIENT ==================
-// ======================================================
-
-app.post("/api/check", (req, res) => {
-    const { key, hwid } = req.body;
-
-    const keys = loadKeys();
-
-    if (!keys[key]) return res.json({ status: "fail", msg: "Key không tồn tại" });
-
-    if (keys[key].locked) return res.json({ status: "fail", msg: "Key đã bị khóa!" });
-
-    if (keys[key].hwid === null) {
-        keys[key].hwid = hwid;
-        saveKeys(keys);
-        return res.json({ status: "success", msg: "Bind HWID lần đầu thành công!" });
+    for (const key in db) {
+        if (db[key].history && db[key].history.length > 0) {
+            list.push({
+                key,
+                history: db[key].history
+            });
+        }
     }
 
-    if (keys[key].hwid !== hwid) {
-        return res.json({ status: "fail", msg: "Sai HWID!" });
-    }
-
-    return res.json({ status: "success", msg: "Key hợp lệ!" });
+    res.json(list);
 });
 
-// ======================================================
+// Routes UI
+app.get("/", (req, res) => res.send("License Admin API OK"));
+app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
+app.get("/create", (req, res) => res.sendFile(path.join(__dirname, "public", "create.html")));
+app.get("/history", (req, res) => res.sendFile(path.join(__dirname, "public", "history.html")));
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log("API running on port", PORT));
+app.listen(PORT, () => {
+    console.log("API running on:", PORT);
+});

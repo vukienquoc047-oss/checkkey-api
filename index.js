@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve public UI
+// Serve UI folder
 app.use(express.static(path.join(__dirname, "public")));
 
 function loadKeys() {
@@ -18,7 +18,7 @@ function saveKeys(data) {
     fs.writeFileSync("keys.json", JSON.stringify(data, null, 2));
 }
 
-// Hàm tạo ký tự random
+// Hàm random ký tự
 function randomString(length) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let out = "";
@@ -26,26 +26,28 @@ function randomString(length) {
     return out;
 }
 
-// API tạo key
+/* =======================================================
+   API TẠO KEY — /api/create
+   ======================================================= */
 app.post("/api/create", (req, res) => {
     let { duration, amount, note } = req.body;
+
     amount = parseInt(amount);
 
-    if (!duration || !amount || amount < 1) {
+    if (!duration || !amount || amount < 1)
         return res.json({ success: false, message: "Thiếu dữ liệu!" });
-    }
 
     const db = loadKeys();
-    let createdKeys = [];
+    const created = [];
 
     for (let i = 0; i < amount; i++) {
         const key = `${duration.toUpperCase()}-QUOCDZJ2K2-${randomString(10)}`;
 
         db[key] = {
             duration,
-            note: note || "",
             hwid: null,
             locked: false,
+            note: note || "",
             history: [
                 {
                     time: new Date().toLocaleString(),
@@ -56,7 +58,7 @@ app.post("/api/create", (req, res) => {
             ]
         };
 
-        createdKeys.push(key);
+        created.push(key);
     }
 
     saveKeys(db);
@@ -64,34 +66,47 @@ app.post("/api/create", (req, res) => {
     return res.json({
         success: true,
         message: "Tạo key thành công!",
-        keys: createdKeys
+        keys: created
     });
 });
 
-// API xem lịch sử
-app.get("/api/history", (req, res) => {
+/* =======================================================
+   API XEM LỊCH SỬ KEY — /api/key/history
+   ======================================================= */
+app.get("/api/key/history", (req, res) => {
+    const key = req.query.key;
     const db = loadKeys();
-    let list = [];
 
-    for (const key in db) {
-        if (db[key].history && db[key].history.length > 0) {
-            list.push({
-                key,
-                history: db[key].history
-            });
-        }
-    }
+    if (!db[key])
+        return res.json({ success: false, message: "Key không tồn tại!" });
 
-    res.json(list);
+    return res.json({
+        success: true,
+        data: db[key].history || []
+    });
 });
 
-// Routes UI
-app.get("/", (req, res) => res.send("License Admin API OK"));
-app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
-app.get("/create", (req, res) => res.sendFile(path.join(__dirname, "public", "create.html")));
-app.get("/history", (req, res) => res.sendFile(path.join(__dirname, "public", "history.html")));
+/* =======================================================
+   UI ROUTES  
+   ======================================================= */
+app.get("/", (req, res) => {
+    res.send("License Admin API OK");
+});
 
+app.get("/admin", (req, res) =>
+    res.sendFile(path.join(__dirname, "public", "admin.html"))
+);
+
+app.get("/create", (req, res) =>
+    res.sendFile(path.join(__dirname, "public", "create.html"))
+);
+
+app.get("/history", (req, res) =>
+    res.sendFile(path.join(__dirname, "public", "history.html"))
+);
+
+/* =======================================================
+   START SERVER
+   ======================================================= */
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log("API running on:", PORT);
-});
+app.listen(PORT, () => console.log("API running on port:", PORT));

@@ -13,7 +13,7 @@
           <div class="badge">📜 Lịch sử</div>
           <h1 class="card-title" style="font-size:1.4rem;">Lịch sử thao tác với Key</h1>
           <p class="card-subtitle">
-            Xem toàn bộ lịch sử tạo, gia hạn, khoá, reset của một key.
+            Xem toàn bộ lịch sử tạo, gia hạn, khoá, reset của key.
           </p>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="goBack()">← Về menu</button>
@@ -22,18 +22,10 @@
       <form class="form" id="historyForm">
         <div class="form-group">
           <label class="form-label">Key cần xem lịch sử</label>
-          <input
-            type="text"
-            class="form-control"
-            name="key"
-            placeholder="VD: ABC-XYZ-123"
-            required
-          />
+          <input type="text" class="form-control" name="key" placeholder="VD: 1DAY-QUOCDZJ2K2-XXXX" required />
         </div>
 
-        <button type="submit" class="btn btn-primary btn-full mt-1">
-          🔍 Xem lịch sử
-        </button>
+        <button type="submit" class="btn btn-primary btn-full mt-1">🔍 Xem lịch sử</button>
       </form>
 
       <div class="table-wrap mt-3" id="tableWrap" style="display:none;">
@@ -46,87 +38,78 @@
               <th>Trạng thái</th>
             </tr>
           </thead>
-          <tbody id="historyBody">
-          </tbody>
+          <tbody id="historyBody"></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast">
-    <span id="toast-text"></span>
-  </div>
+  <div id="toast" class="toast"><span id="toast-text"></span></div>
 
   <script>
-    const API_BASE = '/api/key';
+    const API_BASE = "/api/key";
 
     function goBack() {
-      window.location.href = 'admin.html';
+      window.location.href = "admin.html";
     }
 
     function showToast(msg) {
-      const t = document.getElementById('toast');
-      document.getElementById('toast-text').textContent = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2600);
+      const t = document.getElementById("toast");
+      document.getElementById("toast-text").textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2600);
     }
 
     function renderHistory(rows) {
-      const tbody = document.getElementById('historyBody');
-      const wrap = document.getElementById('tableWrap');
-      tbody.innerHTML = '';
+      const tbody = document.getElementById("historyBody");
+      const wrap = document.getElementById("tableWrap");
+      tbody.innerHTML = "";
 
-      if (!rows || !rows.length) {
-        wrap.style.display = 'none';
-        showToast('Không có lịch sử cho key này.');
+      if (!rows || rows.length === 0) {
+        wrap.style.display = "none";
+        showToast("Không có lịch sử cho key này.");
         return;
       }
 
-      rows.forEach(item => {
-        const tr = document.createElement('tr');
-
-        const time = item.time || item.timestamp || '';
-        const action = item.action || item.type || '';
-        const note = item.note || item.details || '';
-        const status = item.status || '';
+      rows.forEach((item) => {
+        const tr = document.createElement("tr");
 
         tr.innerHTML = `
-          <td>${time}</td>
-          <td>${action}</td>
-          <td>${note}</td>
+          <td>${item.time || ""}</td>
+          <td>${item.action || ""}</td>
+          <td>${item.note || ""}</td>
           <td>
             <span class="status-pill ${
-              status === 'locked' ? 'status-locked' : 'status-ok'
-            }">${status || 'ok'}</span>
+              item.status === "locked" ? "status-locked" : "status-ok"
+            }">${item.status || "ok"}</span>
           </td>
         `;
 
         tbody.appendChild(tr);
       });
 
-      wrap.style.display = 'block';
+      wrap.style.display = "block";
     }
 
-    document.getElementById('historyForm').addEventListener('submit', async (e) => {
+    document.getElementById("historyForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+
       const form = e.target;
       const key = form.key.value.trim();
-      if (!key) return showToast('Vui lòng nhập key!');
+      if (!key) return showToast("Vui lòng nhập key!");
 
       try {
-        const res = await fetch(`${API_BASE}/history?key=${encodeURIComponent(key)}`, {
-          method: 'GET'
-        });
+        const res = await fetch(`${API_BASE}/history?key=${encodeURIComponent(key)}`);
         const data = await res.json();
 
         if (data.success) {
-          renderHistory(data.data || []);
+          renderHistory(data.data);
         } else {
-          showToast(data.message || 'Không lấy được lịch sử!');
+          showToast(data.message || "Lỗi khi lấy lịch sử!");
         }
       } catch (err) {
         console.error(err);
-        showToast('Lỗi kết nối tới server!');
+        showToast("Lỗi kết nối tới server!");
       }
     });
   </script>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Danh sách tất cả key</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+  <div class="page-shell">
+    <div class="card">
+      <div class="flex-between">
+        <div class="card-header" style="text-align:left;margin-bottom:16px;">
+          <div class="badge">🔑 Tất cả key</div>
+          <h1 class="card-title" style="font-size:1.4rem;">Danh sách License Key</h1>
+          <p class="card-subtitle">
+            Hiển thị toàn bộ key, trạng thái, ghi chú, HWID và lịch sử.
+          </p>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="goBack()">← Về menu</button>
+      </div>
+
+      <div class="table-wrap mt-3">
+        <table>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Thời hạn</th>
+              <th>Ghi chú</th>
+              <th>HWID</th>
+              <th>Trạng thái</th>
+              <th>Lịch sử</th>
+              <th>Copy</th>
+            </tr>
+          </thead>
+          <tbody id="keysBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function goBack() {
+      window.location.href = "admin.html";
+    }
+
+    async function loadAllKeys() {
+      try {
+        const res = await fetch("/api/keys");
+        const data = await res.json();
+
+        if (!data.success) {
+          Swal.fire("Lỗi!", "Không tải được danh sách key!", "error");
+          return;
+        }
+
+        const tbody = document.getElementById("keysBody");
+        tbody.innerHTML = "";
+
+        const db = data.data;
+
+        Object.keys(db).forEach(key => {
+          const item = db[key];
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = `
+            <td><b>${key}</b></td>
+            <td>${item.duration}</td>
+            <td>${item.note || ""}</td>
+            <td>${item.hwid || "Chưa bind"}</td>
+            <td>
+              <span class="status-pill ${item.locked ? "status-locked" : "status-ok"}">
+                ${item.locked ? "locked" : "ok"}
+              </span>
+            </td>
+            <td>${item.history ? item.history.length : 0} lần</td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="copyKey('${key}')">📋</button>
+            </td>
+          `;
+
+          tbody.appendChild(tr);
+        });
+
+      } catch (err) {
+        Swal.fire("Lỗi kết nối!", "Không kết nối tới server!", "error");
+      }
+    }
+
+    function copyKey(key) {
+      navigator.clipboard.writeText(key);
+      Swal.fire("Đã copy key!", key, "success");
+    }
+
+    loadAllKeys();
+  </script>
+</body>
+</html>

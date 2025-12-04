@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>Danh sách tất cả key</title>
+  <title>Tất cả License Keys</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -12,10 +12,10 @@
     <div class="card">
       <div class="flex-between">
         <div class="card-header" style="text-align:left;margin-bottom:16px;">
-          <div class="badge">🔑 Tất cả key</div>
-          <h1 class="card-title" style="font-size:1.4rem;">Danh sách License Key</h1>
+          <div class="badge">🔑 Danh sách key</div>
+          <h1 class="card-title" style="font-size:1.4rem;">Tất cả License Key</h1>
           <p class="card-subtitle">
-            Hiển thị toàn bộ key, trạng thái, ghi chú, HWID và lịch sử.
+            Xem toàn bộ key, trạng thái, HWID, ghi chú và lịch sử.
           </p>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="goBack()">← Về menu</button>
@@ -31,7 +31,7 @@
               <th>HWID</th>
               <th>Trạng thái</th>
               <th>Lịch sử</th>
-              <th>Copy</th>
+              <th>Thao tác</th>
             </tr>
           </thead>
           <tbody id="keysBody"></tbody>
@@ -45,6 +45,42 @@
       window.location.href = "admin.html";
     }
 
+    // COPY KEY
+    function copyKey(key) {
+      navigator.clipboard.writeText(key);
+      Swal.fire("Đã copy key!", key, "success");
+    }
+
+    // DELETE KEY
+    async function deleteKey(key) {
+      const confirm = await Swal.fire({
+        title: "Xoá Key?",
+        text: key,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Xoá",
+        cancelButtonText: "Hủy",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      const res = await fetch("/api/key/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        Swal.fire("Đã xoá!", key, "success");
+        loadAllKeys();
+      } else {
+        Swal.fire("Lỗi!", data.message, "error");
+      }
+    }
+
+    // LOAD ALL KEYS
     async function loadAllKeys() {
       try {
         const res = await fetch("/api/keys");
@@ -77,6 +113,7 @@
             <td>${item.history ? item.history.length : 0} lần</td>
             <td>
               <button class="btn btn-sm btn-primary" onclick="copyKey('${key}')">📋</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteKey('${key}')" style="margin-left:6px;">🗑</button>
             </td>
           `;
 
@@ -84,13 +121,8 @@
         });
 
       } catch (err) {
-        Swal.fire("Lỗi kết nối!", "Không kết nối tới server!", "error");
+        Swal.fire("Lỗi kết nối!", "Không kết nối được server!", "error");
       }
-    }
-
-    function copyKey(key) {
-      navigator.clipboard.writeText(key);
-      Swal.fire("Đã copy key!", key, "success");
     }
 
     loadAllKeys();

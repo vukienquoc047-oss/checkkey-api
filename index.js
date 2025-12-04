@@ -202,9 +202,15 @@ app.get("/all-keys", (req, res) =>
 );
 
 /* =======================================================
-   START SERVER — CHUẨN RENDER
+   START SERVER — CHUẨN RENDER (KHÔNG Fallback, KHÔNG PORT 10000)
    ======================================================= */
-const PORT = process.env.PORT;  // Render luôn cung cấp PORT
+const PORT = process.env.PORT;
+
+if (!PORT) {
+    console.error("❌ ERROR: process.env.PORT không tồn tại! Kiểm tra lại service type trên Render.");
+    process.exit(1);
+}
+
 app.listen(PORT, "0.0.0.0", () => {
     console.log("API running on port:", PORT);
 });

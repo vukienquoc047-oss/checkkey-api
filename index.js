@@ -9,6 +9,9 @@ app.use(express.urlencoded({ extended: true }));
 // Serve UI folder
 app.use(express.static(path.join(__dirname, "public")));
 
+// =====================
+// LOAD / SAVE DATABASE
+// =====================
 function loadKeys() {
     if (!fs.existsSync("keys.json")) return {};
     return JSON.parse(fs.readFileSync("keys.json", "utf8"));
@@ -18,6 +21,7 @@ function saveKeys(data) {
     fs.writeFileSync("keys.json", JSON.stringify(data, null, 2));
 }
 
+// Random ký tự
 function randomString(length) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let out = "";
@@ -26,7 +30,7 @@ function randomString(length) {
 }
 
 /* =======================================================
-   API TẠO KEY — /api/create
+   API TẠO KEY — POST /api/create
    ======================================================= */
 app.post("/api/create", (req, res) => {
     let { duration, amount, note } = req.body;
@@ -70,7 +74,7 @@ app.post("/api/create", (req, res) => {
 });
 
 /* =======================================================
-   API XEM LỊCH SỬ KEY — /api/key/history
+   API XEM LỊCH SỬ KEY — GET /api/key/history?key=xxx
    ======================================================= */
 app.get("/api/key/history", (req, res) => {
     const key = req.query.key;
@@ -86,19 +90,15 @@ app.get("/api/key/history", (req, res) => {
 });
 
 /* =======================================================
-   🆕 API LẤY TOÀN BỘ KEY — /api/keys
+   API XEM TẤT CẢ KEY — GET /api/keys
    ======================================================= */
 app.get("/api/keys", (req, res) => {
     const db = loadKeys();
-    return res.json({
-        success: true,
-        total: Object.keys(db).length,
-        keys: db
-    });
+    return res.json({ success: true, data: db });
 });
 
 /* =======================================================
-   UI ROUTES
+   UI ROUTES  
    ======================================================= */
 app.get("/", (req, res) => {
     res.send("License Admin API OK");
@@ -116,11 +116,8 @@ app.get("/history", (req, res) =>
     res.sendFile(path.join(__dirname, "public", "history.html"))
 );
 
-/* =======================================================
-   🆕 UI ROUTE HIỂN THỊ TẤT CẢ KEY — /all-keys
-   ======================================================= */
 app.get("/all-keys", (req, res) =>
-    res.sendFile(path.join(__dirname, "public", "allkey.html"))
+    res.sendFile(path.join(__dirname, "public", "all-keys.html"))
 );
 
 /* =======================================================

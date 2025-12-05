@@ -8,9 +8,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// ======================================
-// LOAD / SAVE DB
-// ======================================
+/* =======================
+   LOAD / SAVE DATABASE
+========================*/
 function loadKeys() {
     try {
         return JSON.parse(fs.readFileSync("keys.json", "utf8"));
@@ -23,11 +23,11 @@ function saveKeys(data) {
     fs.writeFileSync("keys.json", JSON.stringify(data, null, 2));
 }
 
-// ======================================
-// RANDOM 10–15 ký tự cuối
-// ======================================
+/* =======================
+   RANDOM 10–15 CHARACTERS
+========================*/
 function randomKeySegment() {
-    const len = Math.floor(Math.random() * 6) + 10; // 10 → 15 ký tự
+    const len = Math.floor(Math.random() * 6) + 10;
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let out = "";
     for (let i = 0; i < len; i++)
@@ -35,17 +35,12 @@ function randomKeySegment() {
     return out;
 }
 
-// ======================================
-// PHẦN GIỮA CỐ ĐỊNH
-// ======================================
 const FIXED_ID = "QUOCDZJ2K2";
 
-// ======================================
-// ⭐ HÀM TÍNH NGÀY HẾT HẠN UTC+7 (CHUẨN CHÍNH XÁC)
-// ======================================
+/* =======================
+   GET EXPIRE DATE (ISO + UTC+7)
+========================*/
 function getExpireDate(duration) {
-    const now = new Date();
-
     const daysMap = {
         "1DAY": 1,
         "7DAY": 7,
@@ -54,66 +49,68 @@ function getExpireDate(duration) {
         "365DAY": 365
     };
 
-    const addDays = daysMap[duration] || 1;
-    now.setDate(now.getDate() + addDays);
+    const days = daysMap[duration] || 1;
 
-    // Tính sang múi giờ Việt Nam (UTC+7)
-    const vn = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    // thời điểm hiện tại (UTC)
+    const now = new Date();
 
-    const yyyy = vn.getFullYear();
-    const mm = String(vn.getMonth() + 1).padStart(2, "0");
-    const dd = String(vn.getDate()).padStart(2, "0");
+    // cộng thêm số ngày
+    now.setUTCDate(now.getUTCDate() + days);
 
-    const hh = String(vn.getHours()).padStart(2, "0");
-    const mi = String(vn.getMinutes()).padStart(2, "0");
-    const ss = String(vn.getSeconds()).padStart(2, "0");
+    // chuyển sang giờ VN
+    const expire = new Date(now.getTime() + 7 * 3600 * 1000);
 
-    return `${dd}/${mm}/${yyyy}, ${hh}:${mi}:${ss}`;
+    // TRẢ VỀ ĐÚNG DẠNG ISO → JS PARSE CHUẨN
+    return expire.toISOString();
 }
 
-// ======================================
-// CHECK KEY
-// ======================================
+/* =======================
+   CHECK KEY
+========================*/
 app.post("/api/check", (req, res) => {
     const { key, hwid } = req.body;
-    if (!key || !hwid) return res.json({ status: "error", msg: "Thiếu dữ liệu!" });
+
+    if (!key || !hwid)
+        return res.json({ status: "error", msg: "Thiếu dữ liệu!" });
 
     const db = loadKeys();
-    if (!db[key]) return res.json({ status: "error", msg: "Key không tồn tại!" });
-    if (db[key].locked) return res.json({ status: "error", msg: "Key bị khóa!" });
 
-    // CHECK HẾT HẠN theo GMT+7
-    const expireAt = new Date(new Date(db[key].expireAt).getTime());
-    const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    if (!db[key])
+        return res.json({ status: "error", msg: "Key không tồn tại!" });
 
-    if (nowVN > expireAt) {
+    if (db[key].locked)
+        return res.json({ status: "error", msg: "Key bị khóa!" });
+
+    // PARSE NGÀY HẾT HẠN CHUẨN
+    const expireAt = new Date(db[key].expireAt);
+    const nowVN = new Date(Date.now() + 7 * 3600 * 1000);
+
+    if (nowVN > expireAt)
         return res.json({ status: "error", msg: "Key đã hết hạn!" });
-    }
 
-    if (!db[key].history) db[key].history = [];
-
-    // Kích hoạt lần đầu
+    // KÍCH HOẠT LẦN ĐẦU
     if (!db[key].hwid) {
         db[key].hwid = hwid;
+
         db[key].history.push({
-            time: getExpireDate("0DAY"),
+            time: new Date().toISOString(),
             action: "activate",
             status: "success"
         });
+
         saveKeys(db);
         return res.json({ status: "success", msg: "Kích hoạt thành công!" });
     }
 
-    // Sai máy
     if (db[key].hwid !== hwid)
         return res.json({ status: "error", msg: "Key đã kích hoạt trên máy khác!" });
 
     return res.json({ status: "success", msg: "Key hợp lệ!" });
 });
 
-// ======================================
-// CREATE KEY
-// ======================================
+/* =======================
+   CREATE KEY
+========================*/
 app.post("/api/create", (req, res) => {
     let { duration, amount, note } = req.body;
     amount = parseInt(amount);
@@ -129,13 +126,13 @@ app.post("/api/create", (req, res) => {
 
         db[key] = {
             duration,
-            expireAt: getExpireDate(duration),
+            expireAt: getExpireDate(duration), // ISO format chuẩn
             hwid: null,
             locked: false,
             note: note || "",
             history: [
                 {
-                    time: getExpireDate("0DAY"),
+                    time: new Date().toISOString(),
                     action: "create",
                     status: "ok"
                 }
@@ -149,34 +146,37 @@ app.post("/api/create", (req, res) => {
     res.json({ success: true, keys: created });
 });
 
-// ======================================
-// API KHÁC
-// ======================================
+/* =======================
+   OTHER API
+========================*/
 app.get("/api/keys", (req, res) => {
-    const db = loadKeys();
-    res.json({ success: true, data: db });
+    res.json({ success: true, data: loadKeys() });
 });
 
 app.get("/api/key/history", (req, res) => {
     const { key } = req.query;
-    if (!key) return res.json({ success: false, message: "Thiếu key!" });
+
+    if (!key)
+        return res.json({ success: false, message: "Thiếu key!" });
 
     const db = loadKeys();
-    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    if (!db[key])
+        return res.json({ success: false, message: "Key không tồn tại!" });
 
     res.json({ success: true, data: db[key].history || [] });
 });
 
 app.post("/api/key/lock", (req, res) => {
     const { key, reason } = req.body;
-
     const db = loadKeys();
-    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    if (!db[key])
+        return res.json({ success: false, message: "Key không tồn tại!" });
 
     db[key].locked = true;
-
     db[key].history.push({
-        time: getExpireDate("0DAY"),
+        time: new Date().toISOString(),
         action: "lock",
         note: reason || "",
         status: "locked"
@@ -188,14 +188,14 @@ app.post("/api/key/lock", (req, res) => {
 
 app.post("/api/key/reset-hwid", (req, res) => {
     const { key } = req.body;
-
     const db = loadKeys();
-    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    if (!db[key])
+        return res.json({ success: false, message: "Key không tồn tại!" });
 
     db[key].hwid = null;
-
     db[key].history.push({
-        time: getExpireDate("0DAY"),
+        time: new Date().toISOString(),
         action: "reset-hwid",
         status: "ok"
     });
@@ -206,15 +206,16 @@ app.post("/api/key/reset-hwid", (req, res) => {
 
 app.post("/api/key/renew", (req, res) => {
     const { key, duration } = req.body;
-
     const db = loadKeys();
-    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    if (!db[key])
+        return res.json({ success: false, message: "Key không tồn tại!" });
 
     db[key].duration = duration;
     db[key].expireAt = getExpireDate(duration);
 
     db[key].history.push({
-        time: getExpireDate("0DAY"),
+        time: new Date().toISOString(),
         action: "renew",
         note: duration,
         status: "ok"
@@ -226,9 +227,10 @@ app.post("/api/key/renew", (req, res) => {
 
 app.delete("/api/key/delete", (req, res) => {
     const { key } = req.body;
-
     const db = loadKeys();
-    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    if (!db[key])
+        return res.json({ success: false, message: "Key không tồn tại!" });
 
     delete db[key];
     saveKeys(db);
@@ -236,6 +238,9 @@ app.delete("/api/key/delete", (req, res) => {
     res.json({ success: true, message: "Xoá key thành công!" });
 });
 
+/* =======================
+   SERVER
+========================*/
 app.get("/", (req, res) => res.send("API is running"));
 
 const PORT = process.env.PORT || 10000;

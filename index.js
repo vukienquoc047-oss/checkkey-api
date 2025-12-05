@@ -8,9 +8,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// =======================
-// LOAD & SAVE DATABASE
-// =======================
 function loadKeys() {
     try {
         return JSON.parse(fs.readFileSync("keys.json", "utf8"));
@@ -26,15 +23,11 @@ function saveKeys(data) {
 function randomString(len) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let out = "";
-    for (let i = 0; i < len; i++) {
-        out += chars[Math.floor(Math.random() * chars.length)];
-    }
+    for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
     return out;
 }
 
-// =======================
-// API CHECK KEY
-// =======================
+// CHECK
 app.post("/api/check", (req, res) => {
     const { key, hwid } = req.body;
     if (!key || !hwid) return res.json({ status: "error", msg: "Thiếu dữ liệu!" });
@@ -47,11 +40,7 @@ app.post("/api/check", (req, res) => {
 
     if (!db[key].hwid) {
         db[key].hwid = hwid;
-        db[key].history.push({
-            time: new Date().toLocaleString(),
-            action: "activate",
-            status: "success"
-        });
+        db[key].history.push({ time: new Date().toLocaleString(), action: "activate", status: "success" });
         saveKeys(db);
         return res.json({ status: "success", msg: "Kích hoạt thành công!" });
     }
@@ -62,9 +51,7 @@ app.post("/api/check", (req, res) => {
     return res.json({ status: "success", msg: "Key hợp lệ!" });
 });
 
-// =======================
-// API CREATE KEY
-// =======================
+// CREATE
 app.post("/api/create", (req, res) => {
     let { duration, amount, note } = req.body;
     amount = parseInt(amount);
@@ -84,11 +71,7 @@ app.post("/api/create", (req, res) => {
             locked: false,
             note: note || "",
             history: [
-                {
-                    time: new Date().toLocaleString(),
-                    action: "create",
-                    status: "ok"
-                }
+                { time: new Date().toLocaleString(), action: "create", status: "ok" }
             ]
         };
 
@@ -99,30 +82,104 @@ app.post("/api/create", (req, res) => {
     res.json({ success: true, keys: created });
 });
 
-// =======================
-// UI ROUTES — FIX CANNOT GET
-// =======================
+// ================= ADD MISSING ROUTES =================
+
+// ALL KEYS
+app.get("/api/keys", (req, res) => {
+    const db = loadKeys();
+    res.json({ success: true, data: db });
+});
+
+// HISTORY
+app.get("/api/key/history", (req, res) => {
+    const { key } = req.query;
+    if (!key) return res.json({ success: false, message: "Thiếu key!" });
+
+    const db = loadKeys();
+    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    res.json({ success: true, data: db[key].history || [] });
+});
+
+// LOCK
+app.post("/api/key/lock", (req, res) => {
+    const { key, reason } = req.body;
+
+    const db = loadKeys();
+    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    db[key].locked = true;
+
+    db[key].history.push({
+        time: new Date().toLocaleString(),
+        action: "lock",
+        note: reason || "",
+        status: "locked"
+    });
+
+    saveKeys(db);
+    res.json({ success: true, message: "Khoá key thành công!" });
+});
+
+// RESET HWID
+app.post("/api/key/reset-hwid", (req, res) => {
+    const { key } = req.body;
+
+    const db = loadKeys();
+    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    db[key].hwid = null;
+
+    db[key].history.push({
+        time: new Date().toLocaleString(),
+        action: "reset-hwid",
+        status: "ok"
+    });
+
+    saveKeys(db);
+    res.json({ success: true, message: "Reset HWID thành công!" });
+});
+
+// RENEW
+app.post("/api/key/renew", (req, res) => {
+    const { key, duration } = req.body;
+
+    const db = loadKeys();
+    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    db[key].duration = duration;
+
+    db[key].history.push({
+        time: new Date().toLocaleString(),
+        action: "renew",
+        note: duration,
+        status: "ok"
+    });
+
+    saveKeys(db);
+    res.json({ success: true, message: "Gia hạn thành công!" });
+});
+
+// DELETE KEY
+app.delete("/api/key/delete", (req, res) => {
+    const { key } = req.body;
+
+    const db = loadKeys();
+    if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
+
+    delete db[key];
+    saveKeys(db);
+
+    res.json({ success: true, message: "Xoá key thành công!" });
+});
+
+// UI routes
 function sendPage(res, file) {
     res.sendFile(path.join(__dirname, "public", file));
 }
 
-app.get("/admin", (req, res) => sendPage(res, "admin.html"));
-app.get("/admin/", (req, res) => sendPage(res, "admin.html"));
-
-app.get("/create", (req, res) => sendPage(res, "create.html"));
-app.get("/create/", (req, res) => sendPage(res, "create.html"));
-
-app.get("/history", (req, res) => sendPage(res, "history.html"));
-app.get("/history/", (req, res) => sendPage(res, "history.html"));
-
-app.get("/all-keys", (req, res) => sendPage(res, "all-keys.html"));
-app.get("/all-keys/", (req, res) => sendPage(res, "all-keys.html"));
-
 app.get("/", (req, res) => res.send("API is running"));
 
-// =======================
-// START SERVER FOR RENDER
-// =======================
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
     console.log("Server started on port:", PORT);

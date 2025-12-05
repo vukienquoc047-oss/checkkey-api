@@ -38,16 +38,29 @@ function randomKeySegment() {
 const FIXED_ID = "QUOCDZJ2K2";
 
 /* =======================
-   MAP THỜI GIAN
+   PARSE DURATION (HỖ TRỢ 1d / 1DAY)
 ========================*/
-const daysMap = {
-    "1DAY": 1,
-    "7DAY": 7,
-    "30DAY": 30,
-    "90DAY": 90,
-    "365DAY": 365
-};
+function parseDuration(text) {
+    if (!text) return 1;
 
+    text = text.toUpperCase().trim();
+
+    const map = {
+        "1DAY": 1, "1D": 1,
+        "7DAY": 7, "7D": 7,
+        "30DAY": 30, "30D": 30,
+        "90DAY": 90, "90D": 90,
+        "365DAY": 365, "365D": 365
+    };
+
+    if (map[text]) return map[text];
+
+    // fallback: auto parse số
+    const m = text.match(/(\d+)/);
+    if (m) return parseInt(m[1]);
+
+    return 1;
+}
 
 /* =======================
    CHECK KEY
@@ -74,11 +87,11 @@ app.post("/api/check", (req, res) => {
     if (!db[key].hwid) {
         db[key].hwid = hwid;
 
-        const days = daysMap[db[key].duration] || 1;
-
+        const days = parseDuration(db[key].duration);
         const expire = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-        db[key].expireAt = expire.toISOString();
+
         db[key].activatedAt = now.toISOString();
+        db[key].expireAt = expire.toISOString();
 
         db[key].history.push({
             time: now.toISOString(),
@@ -96,7 +109,7 @@ app.post("/api/check", (req, res) => {
     }
 
     // =====================
-    // KHÔNG TRÙNG HWID
+    // SAI HWID
     // =====================
     if (db[key].hwid !== hwid)
         return res.json({ status: "error", msg: "Key đã kích hoạt trên máy khác!" });
@@ -111,7 +124,7 @@ app.post("/api/check", (req, res) => {
 
     return res.json({
         status: "success",
-        msg: "Key hợp lệ",
+        msg: "Key hợp lệ!",
         expireAt: db[key].expireAt
     });
 });
@@ -126,6 +139,8 @@ app.post("/api/create", (req, res) => {
     if (!duration || !amount || amount < 1)
         return res.json({ success: false, message: "Thiếu dữ liệu!" });
 
+    duration = duration.toUpperCase(); // chuẩn hoá
+
     const db = loadKeys();
     const created = [];
 
@@ -134,7 +149,7 @@ app.post("/api/create", (req, res) => {
 
         db[key] = {
             duration,
-            expireAt: null,        // ❗ CHƯA KÍCH HOẠT → CHƯA CÓ HẠN
+            expireAt: null,        // CHƯA KÍCH HOẠT → CHƯA CÓ HẠN
             activatedAt: null,
             hwid: null,
             locked: false,
@@ -184,6 +199,7 @@ app.post("/api/key/lock", (req, res) => {
         return res.json({ success: false, message: "Key không tồn tại!" });
 
     db[key].locked = true;
+
     db[key].history.push({
         time: new Date().toISOString(),
         action: "lock",
@@ -223,12 +239,11 @@ app.post("/api/key/renew", (req, res) => {
     if (!db[key])
         return res.json({ success: false, message: "Key không tồn tại!" });
 
-    db[key].duration = duration;
+    db[key].duration = duration.toUpperCase();
 
     if (db[key].activatedAt) {
-        const now = new Date();
-        const days = daysMap[duration] || 1;
-        const expire = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+        const days = parseDuration(db[key].duration);
+        const expire = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
         db[key].expireAt = expire.toISOString();
     }
 

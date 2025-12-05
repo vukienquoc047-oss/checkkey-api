@@ -55,11 +55,51 @@ function parseDuration(text) {
 
     if (map[text]) return map[text];
 
-    // fallback: auto parse số
+    // fallback auto: parse số
     const m = text.match(/(\d+)/);
     if (m) return parseInt(m[1]);
 
     return 1;
+}
+
+/* =======================
+   TIME FORMAT FUNCTIONS
+========================*/
+
+// Convert ISO UTC → Date VN
+function toVNDate(iso) {
+    const d = new Date(iso);
+    return new Date(d.getTime() + 7 * 3600 * 1000);
+}
+
+// Format: DD/MM/YYYY HH:mm (GMT+7)
+function formatVN(iso) {
+    const d = toVNDate(iso);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    const h = String(d.getHours()).padStart(2, "0");
+    const m = String(d.getMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} ${h}:${m} (GMT+7)`;
+}
+
+// Thời gian còn lại
+function timeLeft(iso) {
+    const now = new Date();
+    const ex = new Date(iso);
+
+    let diff = ex - now;
+    if (diff <= 0) return "Hết hạn";
+
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    diff %= (24 * 60 * 60 * 1000);
+
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    diff %= (60 * 60 * 1000);
+
+    const minutes = Math.floor(diff / (60 * 1000));
+
+    return `${days} ngày ${hours} giờ ${minutes} phút`;
 }
 
 /* =======================
@@ -104,7 +144,9 @@ app.post("/api/check", (req, res) => {
         return res.json({
             status: "success",
             msg: "Kích hoạt thành công!",
-            expireAt: db[key].expireAt
+            expireAt: db[key].expireAt,
+            expireAtVN: formatVN(db[key].expireAt),
+            timeLeft: timeLeft(db[key].expireAt)
         });
     }
 
@@ -125,7 +167,9 @@ app.post("/api/check", (req, res) => {
     return res.json({
         status: "success",
         msg: "Key hợp lệ!",
-        expireAt: db[key].expireAt
+        expireAt: db[key].expireAt,
+        expireAtVN: formatVN(db[key].expireAt),
+        timeLeft: timeLeft(db[key].expireAt)
     });
 });
 
@@ -139,7 +183,7 @@ app.post("/api/create", (req, res) => {
     if (!duration || !amount || amount < 1)
         return res.json({ success: false, message: "Thiếu dữ liệu!" });
 
-    duration = duration.toUpperCase(); // chuẩn hoá
+    duration = duration.toUpperCase(); // chuẩn hóa
 
     const db = loadKeys();
     const created = [];
@@ -149,7 +193,7 @@ app.post("/api/create", (req, res) => {
 
         db[key] = {
             duration,
-            expireAt: null,        // CHƯA KÍCH HOẠT → CHƯA CÓ HẠN
+            expireAt: null,
             activatedAt: null,
             hwid: null,
             locked: false,
@@ -171,12 +215,27 @@ app.post("/api/create", (req, res) => {
 });
 
 /* =======================
-   OTHER API
+   GET ALL KEYS (WITH FORMATTED_TIME)
 ========================*/
 app.get("/api/keys", (req, res) => {
-    res.json({ success: true, data: loadKeys() });
+    const db = loadKeys();
+
+    for (let k in db) {
+        if (db[k].expireAt) {
+            db[k].expireAtVN = formatVN(db[k].expireAt);
+            db[k].timeLeft = timeLeft(db[k].expireAt);
+        } else {
+            db[k].expireAtVN = "Chưa kích hoạt";
+            db[k].timeLeft = "Chưa kích hoạt";
+        }
+    }
+
+    res.json({ success: true, data: db });
 });
 
+/* =======================
+   KEY HISTORY
+========================*/
 app.get("/api/key/history", (req, res) => {
     const { key } = req.query;
 
@@ -191,6 +250,9 @@ app.get("/api/key/history", (req, res) => {
     res.json({ success: true, data: db[key].history || [] });
 });
 
+/* =======================
+   LOCK KEY
+========================*/
 app.post("/api/key/lock", (req, res) => {
     const { key, reason } = req.body;
     const db = loadKeys();
@@ -211,6 +273,9 @@ app.post("/api/key/lock", (req, res) => {
     res.json({ success: true, message: "Khoá key thành công!" });
 });
 
+/* =======================
+   RESET HWID
+========================*/
 app.post("/api/key/reset-hwid", (req, res) => {
     const { key } = req.body;
     const db = loadKeys();
@@ -232,6 +297,9 @@ app.post("/api/key/reset-hwid", (req, res) => {
     res.json({ success: true, message: "Reset HWID thành công!" });
 });
 
+/* =======================
+   RENEW KEY
+========================*/
 app.post("/api/key/renew", (req, res) => {
     const { key, duration } = req.body;
     const db = loadKeys();
@@ -258,6 +326,9 @@ app.post("/api/key/renew", (req, res) => {
     res.json({ success: true, message: "Gia hạn thành công!" });
 });
 
+/* =======================
+   DELETE KEY
+========================*/
 app.delete("/api/key/delete", (req, res) => {
     const { key } = req.body;
     const db = loadKeys();

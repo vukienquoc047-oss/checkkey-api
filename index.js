@@ -20,12 +20,19 @@ function saveKeys(data) {
     fs.writeFileSync("keys.json", JSON.stringify(data, null, 2));
 }
 
-function randomString(len) {
+// RANDOM 10–15 ký tự
+function randomKeySegment() {
+    const len = Math.floor(Math.random() * 6) + 10; // 10 → 15 ký tự
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let out = "";
-    for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < len; i++)
+        out += chars[Math.floor(Math.random() * chars.length)];
     return out;
 }
+
+// PHẦN GIỮA CỐ ĐỊNH
+const FIXED_ID = "QUOCDZJ2K2";
+
 
 // CHECK
 app.post("/api/check", (req, res) => {
@@ -51,7 +58,10 @@ app.post("/api/check", (req, res) => {
     return res.json({ status: "success", msg: "Key hợp lệ!" });
 });
 
-// CREATE
+
+// ----------------------------------------------------
+// CREATE — BẢN ĐÃ FIX THEO ĐÚNG FORMAT 1DAY-QUOCDZJ2K2-XXXXX
+// ----------------------------------------------------
 app.post("/api/create", (req, res) => {
     let { duration, amount, note } = req.body;
     amount = parseInt(amount);
@@ -63,7 +73,9 @@ app.post("/api/create", (req, res) => {
     const created = [];
 
     for (let i = 0; i < amount; i++) {
-        const key = `${duration}-${randomString(12)}`;
+
+        // 🎯 TẠO KEY ĐÚNG FORMAT
+        const key = `${duration}-${FIXED_ID}-${randomKeySegment()}`;
 
         db[key] = {
             duration,
@@ -81,6 +93,7 @@ app.post("/api/create", (req, res) => {
     saveKeys(db);
     res.json({ success: true, keys: created });
 });
+
 
 // ================= ADD MISSING ROUTES =================
 
@@ -172,6 +185,7 @@ app.delete("/api/key/delete", (req, res) => {
 
     res.json({ success: true, message: "Xoá key thành công!" });
 });
+
 
 // UI routes
 function sendPage(res, file) {

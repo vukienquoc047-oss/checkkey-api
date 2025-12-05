@@ -66,7 +66,7 @@
       };
 
       try {
-        const res = await fetch("/api/create", {
+        const res = await fetch("https://checkkey-api.onrender.com/api/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

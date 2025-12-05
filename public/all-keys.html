@@ -64,7 +64,7 @@
 
       if (!confirm.isConfirmed) return;
 
-      const res = await fetch("/api/key/delete", {
+      const res = await fetch("https://checkkey-api.onrender.com/api/key/delete", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key })
@@ -85,7 +85,7 @@
        ============================================================ */
     async function loadAllKeys(retry = 5) {
       try {
-        const res = await fetch("/api/keys", { cache: "no-store" });
+        const res = await fetch("https://checkkey-api.onrender.com/api/keys", { cache: "no-store" });
 
         if (!res.ok) throw new Error("Server not ready");
 

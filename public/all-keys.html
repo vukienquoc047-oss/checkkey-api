@@ -7,9 +7,6 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
-    /* ======================
-       STATUS MÀU SẮC
-    ====================== */
     .exp-good { color: #4caf50; font-weight: bold; white-space: nowrap; }
     .exp-warning { color: #ffc400; font-weight: bold; white-space: nowrap; }
     .exp-expired { color: #ff5252; font-weight: bold; white-space: nowrap; }
@@ -24,9 +21,6 @@
     .status-ok { background: #1ecf6d30; color: #1ecf6d; }
     .status-locked { background: #ff525230; color: #ff5252; }
 
-    /* ======================
-       BẢNG ĐẸP + KHÔNG LỆCH
-    ====================== */
     .table-wrap {
       overflow-x: auto;
       white-space: nowrap;
@@ -62,15 +56,6 @@
       transition: 0.15s;
     }
 
-    /* ======================
-       BUTTON TABLE
-    ====================== */
-    .btn-sm {
-      padding: 5px 8px;
-      font-size: 13px;
-      border-radius: 8px;
-    }
-
     .btn-icon {
       display: inline-flex;
       align-items: center;
@@ -83,21 +68,11 @@
       margin-right: 5px;
     }
 
-    .btn-copy {
-      background: #1976d2;
-      color: white;
-    }
-    .btn-copy:hover {
-      background: #0d47a1;
-    }
+    .btn-copy { background: #1976d2; color: white; }
+    .btn-copy:hover { background: #0d47a1; }
 
-    .btn-delete {
-      background: #d32f2f;
-      color: white;
-    }
-    .btn-delete:hover {
-      background: #9a0007;
-    }
+    .btn-delete { background: #d32f2f; color: white; }
+    .btn-delete:hover { background: #9a0007; }
   </style>
 </head>
 
@@ -105,7 +80,6 @@
   <div class="page-shell">
     <div class="card">
 
-      <!-- Header -->
       <div class="flex-between">
         <div class="card-header" style="text-align:left;margin-bottom:16px;">
           <div class="badge">🔑 Danh sách key</div>
@@ -118,7 +92,6 @@
         <button class="btn btn-ghost btn-sm" onclick="goBack()">← Về menu</button>
       </div>
 
-      <!-- TABLE WRAP -->
       <div class="table-wrap mt-3">
         <table>
           <thead>
@@ -179,22 +152,18 @@
     }
 
     /* ================================
-       FORMAT NGÀY HẾT HẠN + MÀU
+       RENDER NGÀY + TIMELEFT
     ================================ */
-    function renderExpire(dateString) {
-      if (!dateString) return "<span class='exp-expired'>Không có</span>";
+    function renderExpire(vnTime, timeLeft) {
+      if (!vnTime || vnTime === "Chưa kích hoạt")
+        return `<span class='exp-expired'>Chưa kích hoạt</span>`;
 
-      const exp = new Date(dateString);
-      const now = new Date();
-      const diff = exp - now;
-      const hours = diff / 1000 / 3600;
-
-      if (hours <= 0)
-        return `<span class="exp-expired">${dateString} (Hết hạn)</span>`;
-      if (hours <= 24)
-        return `<span class="exp-warning">${dateString} (Sắp hết hạn)</span>`;
-
-      return `<span class="exp-good">${dateString}</span>`;
+      return `
+        <div class="exp-good">${vnTime}</div>
+        <div style="color:#9ecaff; font-size:12px; margin-top:2px">
+          (Còn lại: ${timeLeft})
+        </div>
+      `;
     }
 
     /* ================================
@@ -219,13 +188,17 @@
           tr.innerHTML = `
             <td><b>${key}</b></td>
             <td>${item.duration}</td>
-            <td>${renderExpire(item.expireAt)}</td>
+
+            <td>${renderExpire(item.expireAtVN, item.timeLeft)}</td>
+
             <td>${item.note || ""}</td>
             <td>${item.hwid || "<i>Chưa bind</i>"}</td>
+
             <td><span class="status-pill ${item.locked ? "status-locked" : "status-ok"}">
                   ${item.locked ? "locked" : "ok"}
                 </span>
             </td>
+
             <td>${item.history ? item.history.length : 0} lần</td>
 
             <td>

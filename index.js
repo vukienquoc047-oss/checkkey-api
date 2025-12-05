@@ -8,6 +8,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
+// ======================================
+// LOAD / SAVE DB
+// ======================================
 function loadKeys() {
     try {
         return JSON.parse(fs.readFileSync("keys.json", "utf8"));
@@ -20,7 +23,9 @@ function saveKeys(data) {
     fs.writeFileSync("keys.json", JSON.stringify(data, null, 2));
 }
 
-// RANDOM 10–15 ký tự
+// ======================================
+// RANDOM 10–15 ký tự cuối
+// ======================================
 function randomKeySegment() {
     const len = Math.floor(Math.random() * 6) + 10; // 10 → 15 ký tự
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -30,11 +35,34 @@ function randomKeySegment() {
     return out;
 }
 
+// ======================================
 // PHẦN GIỮA CỐ ĐỊNH
+// ======================================
 const FIXED_ID = "QUOCDZJ2K2";
 
+// ======================================
+// TÍNH NGÀY HẾT HẠN theo duration
+// ======================================
+function getExpireDate(duration) {
+    const now = new Date();
 
-// CHECK
+    const daysMap = {
+        "1DAY": 1,
+        "7DAY": 7,
+        "30DAY": 30,
+        "90DAY": 90,
+        "365DAY": 365
+    };
+
+    const addDays = daysMap[duration] || 1;
+    now.setDate(now.getDate() + addDays);
+
+    return now.toLocaleString(); // dạng 12/2/2025, 14:00:00
+}
+
+// ======================================
+// CHECK KEY
+// ======================================
 app.post("/api/check", (req, res) => {
     const { key, hwid } = req.body;
     if (!key || !hwid) return res.json({ status: "error", msg: "Thiếu dữ liệu!" });
@@ -43,8 +71,17 @@ app.post("/api/check", (req, res) => {
     if (!db[key]) return res.json({ status: "error", msg: "Key không tồn tại!" });
     if (db[key].locked) return res.json({ status: "error", msg: "Key bị khóa!" });
 
+    // CHECK HẾT HẠN
+    const expireAt = new Date(db[key].expireAt);
+    const now = new Date();
+
+    if (now > expireAt) {
+        return res.json({ status: "error", msg: "Key đã hết hạn!" });
+    }
+
     if (!db[key].history) db[key].history = [];
 
+    // Kích hoạt lần đầu
     if (!db[key].hwid) {
         db[key].hwid = hwid;
         db[key].history.push({ time: new Date().toLocaleString(), action: "activate", status: "success" });
@@ -52,16 +89,16 @@ app.post("/api/check", (req, res) => {
         return res.json({ status: "success", msg: "Kích hoạt thành công!" });
     }
 
+    // Sai máy
     if (db[key].hwid !== hwid)
         return res.json({ status: "error", msg: "Key đã kích hoạt trên máy khác!" });
 
     return res.json({ status: "success", msg: "Key hợp lệ!" });
 });
 
-
-// ----------------------------------------------------
-// CREATE — BẢN ĐÃ FIX THEO ĐÚNG FORMAT 1DAY-QUOCDZJ2K2-XXXXX
-// ----------------------------------------------------
+// ======================================
+// CREATE KEY (SỬA ĐÚNG FORMAT + expireAt)
+// ======================================
 app.post("/api/create", (req, res) => {
     let { duration, amount, note } = req.body;
     amount = parseInt(amount);
@@ -74,11 +111,12 @@ app.post("/api/create", (req, res) => {
 
     for (let i = 0; i < amount; i++) {
 
-        // 🎯 TẠO KEY ĐÚNG FORMAT
+        // 🎯 FORMAT KEY MỚI
         const key = `${duration}-${FIXED_ID}-${randomKeySegment()}`;
 
         db[key] = {
             duration,
+            expireAt: getExpireDate(duration), // ⭐ NGÀY HẾT HẠN
             hwid: null,
             locked: false,
             note: note || "",
@@ -94,16 +132,14 @@ app.post("/api/create", (req, res) => {
     res.json({ success: true, keys: created });
 });
 
-
-// ================= ADD MISSING ROUTES =================
-
-// ALL KEYS
+// ======================================
+// API KHÁC GIỮ NGUYÊN
+// ======================================
 app.get("/api/keys", (req, res) => {
     const db = loadKeys();
     res.json({ success: true, data: db });
 });
 
-// HISTORY
 app.get("/api/key/history", (req, res) => {
     const { key } = req.query;
     if (!key) return res.json({ success: false, message: "Thiếu key!" });
@@ -114,7 +150,6 @@ app.get("/api/key/history", (req, res) => {
     res.json({ success: true, data: db[key].history || [] });
 });
 
-// LOCK
 app.post("/api/key/lock", (req, res) => {
     const { key, reason } = req.body;
 
@@ -134,7 +169,6 @@ app.post("/api/key/lock", (req, res) => {
     res.json({ success: true, message: "Khoá key thành công!" });
 });
 
-// RESET HWID
 app.post("/api/key/reset-hwid", (req, res) => {
     const { key } = req.body;
 
@@ -153,7 +187,6 @@ app.post("/api/key/reset-hwid", (req, res) => {
     res.json({ success: true, message: "Reset HWID thành công!" });
 });
 
-// RENEW
 app.post("/api/key/renew", (req, res) => {
     const { key, duration } = req.body;
 
@@ -161,6 +194,7 @@ app.post("/api/key/renew", (req, res) => {
     if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
 
     db[key].duration = duration;
+    db[key].expireAt = getExpireDate(duration); // ⭐ GIA HẠN LẠI NGÀY HẾT HẠN
 
     db[key].history.push({
         time: new Date().toLocaleString(),
@@ -173,7 +207,6 @@ app.post("/api/key/renew", (req, res) => {
     res.json({ success: true, message: "Gia hạn thành công!" });
 });
 
-// DELETE KEY
 app.delete("/api/key/delete", (req, res) => {
     const { key } = req.body;
 
@@ -185,12 +218,6 @@ app.delete("/api/key/delete", (req, res) => {
 
     res.json({ success: true, message: "Xoá key thành công!" });
 });
-
-
-// UI routes
-function sendPage(res, file) {
-    res.sendFile(path.join(__dirname, "public", file));
-}
 
 app.get("/", (req, res) => res.send("API is running"));
 

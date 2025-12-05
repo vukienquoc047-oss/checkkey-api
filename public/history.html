@@ -4,16 +4,24 @@
   <meta charset="UTF-8" />
   <title>Lịch sử License Key</title>
   <link rel="stylesheet" href="style.css" />
+
+  <style>
+    .exp-good { color: #00e676; font-weight: bold; }
+    .exp-warning { color: #ffea00; font-weight: bold; }
+    .exp-expired { color: #ff1744; font-weight: bold; }
+  </style>
 </head>
+
 <body>
   <div class="page-shell">
     <div class="card">
+
       <div class="flex-between">
         <div class="card-header" style="text-align:left;margin-bottom:16px;">
           <div class="badge">📜 Lịch sử</div>
           <h1 class="card-title" style="font-size:1.4rem;">Lịch sử thao tác với Key</h1>
           <p class="card-subtitle">
-            Xem toàn bộ lịch sử tạo, gia hạn, khoá, reset của key.
+            Xem toàn bộ lịch sử tạo, kích hoạt, gia hạn, khoá và reset HWID.
           </p>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="goBack()">← Về menu</button>
@@ -27,6 +35,9 @@
 
         <button type="submit" class="btn btn-primary btn-full mt-1">🔍 Xem lịch sử</button>
       </form>
+
+      <!-- Thông tin key -->
+      <div id="keyInfo" style="display:none; margin-top:16px; font-size:14px; line-height:1.4;"></div>
 
       <div class="table-wrap mt-3" id="tableWrap" style="display:none;">
         <table>
@@ -47,7 +58,7 @@
   <div id="toast" class="toast"><span id="toast-text"></span></div>
 
   <script>
-    const API_BASE = "https://checkkey-api.onrender.com/api/key";
+    const API_BASE = "https://checkkey-api.onrender.com/api";
 
     function goBack() {
       window.location.href = "admin.html";
@@ -60,6 +71,25 @@
       setTimeout(() => t.classList.remove("show"), 2600);
     }
 
+    // ===============================
+    // Xử lý màu expireAt giống all-keys.html
+    // ===============================
+    function renderExpire(dateString) {
+      if (!dateString) return `<span class="exp-expired">Không có</span>`;
+
+      const exp = new Date(dateString);
+      const now = new Date();
+      const diff = exp - now;
+      const hours = diff / 1000 / 3600;
+
+      if (hours <= 0) return `<span class="exp-expired">${dateString} (Hết hạn)</span>`;
+      if (hours <= 24) return `<span class="exp-warning">${dateString} (Sắp hết hạn)</span>`;
+      return `<span class="exp-good">${dateString}</span>`;
+    }
+
+    // ===============================
+    // Render lịch sử
+    // ===============================
     function renderHistory(rows) {
       const tbody = document.getElementById("historyBody");
       const wrap = document.getElementById("tableWrap");
@@ -91,6 +121,9 @@
       wrap.style.display = "block";
     }
 
+    // ===============================
+    // Form xử lý xem lịch sử
+    // ===============================
     document.getElementById("historyForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -99,7 +132,29 @@
       if (!key) return showToast("Vui lòng nhập key!");
 
       try {
-        const res = await fetch(`${API_BASE}/history?key=${encodeURIComponent(key)}`);
+        // Lấy toàn bộ keys để tìm key info
+        const all = await fetch(`${API_BASE}/keys`).then(r => r.json());
+        const info = all.data[key];
+
+        if (!info) {
+          showToast("Key không tồn tại!");
+          document.getElementById("keyInfo").style.display = "none";
+          return;
+        }
+
+        // Hiển thị thông tin key
+        document.getElementById("keyInfo").style.display = "block";
+        document.getElementById("keyInfo").innerHTML = `
+          <div><b>Key:</b> ${key}</div>
+          <div><b>Thời hạn:</b> ${info.duration}</div>
+          <div><b>Hết hạn:</b> ${renderExpire(info.expireAt)}</div>
+          <div><b>Ghi chú:</b> ${info.note || "Không có"}</div>
+          <div><b>HWID:</b> ${info.hwid || "Chưa bind"}</div>
+          <div><b>Trạng thái:</b> ${info.locked ? "🔒 Khoá" : "✔ Hoạt động"}</div>
+        `;
+
+        // Lấy lịch sử key
+        const res = await fetch(`${API_BASE}/key/history?key=${encodeURIComponent(key)}`);
         const data = await res.json();
 
         if (data.success) {
@@ -107,6 +162,7 @@
         } else {
           showToast(data.message || "Lỗi khi lấy lịch sử!");
         }
+
       } catch (err) {
         console.error(err);
         showToast("Lỗi kết nối tới server!");

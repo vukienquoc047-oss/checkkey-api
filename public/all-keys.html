@@ -7,26 +7,118 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
-    .exp-good { color: #00e676; font-weight: bold; }
-    .exp-warning { color: #ffea00; font-weight: bold; }
-    .exp-expired { color: #ff1744; font-weight: bold; }
+    /* ======================
+       STATUS MÀU SẮC
+    ====================== */
+    .exp-good { color: #4caf50; font-weight: bold; white-space: nowrap; }
+    .exp-warning { color: #ffc400; font-weight: bold; white-space: nowrap; }
+    .exp-expired { color: #ff5252; font-weight: bold; white-space: nowrap; }
+
+    .status-pill {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .status-ok { background: #1ecf6d30; color: #1ecf6d; }
+    .status-locked { background: #ff525230; color: #ff5252; }
+
+    /* ======================
+       BẢNG ĐẸP + KHÔNG LỆCH
+    ====================== */
+    .table-wrap {
+      overflow-x: auto;
+      white-space: nowrap;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.02);
+      padding: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 950px;
+    }
+
+    table th {
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.05);
+      text-align: left;
+      font-weight: bold;
+      font-size: 14px;
+      color: #d7d7d7;
+    }
+
+    table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    tr:hover {
+      background: rgba(255,255,255,0.06);
+      transition: 0.15s;
+    }
+
+    /* ======================
+       BUTTON TABLE
+    ====================== */
+    .btn-sm {
+      padding: 5px 8px;
+      font-size: 13px;
+      border-radius: 8px;
+    }
+
+    .btn-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 0;
+      margin-right: 5px;
+    }
+
+    .btn-copy {
+      background: #1976d2;
+      color: white;
+    }
+    .btn-copy:hover {
+      background: #0d47a1;
+    }
+
+    .btn-delete {
+      background: #d32f2f;
+      color: white;
+    }
+    .btn-delete:hover {
+      background: #9a0007;
+    }
   </style>
 </head>
 
 <body>
   <div class="page-shell">
     <div class="card">
+
+      <!-- Header -->
       <div class="flex-between">
         <div class="card-header" style="text-align:left;margin-bottom:16px;">
           <div class="badge">🔑 Danh sách key</div>
-          <h1 class="card-title" style="font-size:1.4rem;">Tất cả License Key</h1>
+          <h1 class="card-title" style="font-size:1.5rem; font-weight:600;">Tất cả License Key</h1>
           <p class="card-subtitle">
             Xem toàn bộ key, trạng thái, HWID, ghi chú, ngày hết hạn & lịch sử.
           </p>
         </div>
+
         <button class="btn btn-ghost btn-sm" onclick="goBack()">← Về menu</button>
       </div>
 
+      <!-- TABLE WRAP -->
       <div class="table-wrap mt-3">
         <table>
           <thead>
@@ -44,6 +136,7 @@
           <tbody id="keysBody"></tbody>
         </table>
       </div>
+
     </div>
   </div>
 
@@ -85,30 +178,28 @@
       }
     }
 
-    // ========================
-    // FORMAT expireAt + màu sắc
-    // ========================
+    /* ================================
+       FORMAT NGÀY HẾT HẠN + MÀU
+    ================================ */
     function renderExpire(dateString) {
       if (!dateString) return "<span class='exp-expired'>Không có</span>";
 
       const exp = new Date(dateString);
       const now = new Date();
-
       const diff = exp - now;
       const hours = diff / 1000 / 3600;
 
-      if (hours <= 0) {
-        return `<span class='exp-expired'>${dateString} (Hết hạn)</span>`;
-      }
-      if (hours <= 24) {
-        return `<span class='exp-warning'>${dateString} (Sắp hết hạn)</span>`;
-      }
-      return `<span class='exp-good'>${dateString}</span>`;
+      if (hours <= 0)
+        return `<span class="exp-expired">${dateString} (Hết hạn)</span>`;
+      if (hours <= 24)
+        return `<span class="exp-warning">${dateString} (Sắp hết hạn)</span>`;
+
+      return `<span class="exp-good">${dateString}</span>`;
     }
 
-    // ========================
-    // LOAD KEY + HIỂN THỊ
-    // ========================
+    /* ================================
+       LOAD DANH SÁCH KEY
+    ================================ */
     async function loadAllKeys(retry = 5) {
       try {
         const res = await fetch("https://checkkey-api.onrender.com/api/keys", { cache: "no-store" });
@@ -122,6 +213,7 @@
 
         Object.keys(db).forEach(key => {
           const item = db[key];
+
           const tr = document.createElement("tr");
 
           tr.innerHTML = `
@@ -129,16 +221,16 @@
             <td>${item.duration}</td>
             <td>${renderExpire(item.expireAt)}</td>
             <td>${item.note || ""}</td>
-            <td>${item.hwid || "Chưa bind"}</td>
-            <td>
-              <span class="status-pill ${item.locked ? "status-locked" : "status-ok"}">
-                ${item.locked ? "locked" : "ok"}
-              </span>
+            <td>${item.hwid || "<i>Chưa bind</i>"}</td>
+            <td><span class="status-pill ${item.locked ? "status-locked" : "status-ok"}">
+                  ${item.locked ? "locked" : "ok"}
+                </span>
             </td>
             <td>${item.history ? item.history.length : 0} lần</td>
+
             <td>
-              <button class="btn btn-sm btn-primary" onclick="copyKey('${key}')">📋</button>
-              <button class="btn btn-sm btn-danger" onclick="deleteKey('${key}')">🗑</button>
+              <button class="btn-icon btn-copy" onclick="copyKey('${key}')">📋</button>
+              <button class="btn-icon btn-delete" onclick="deleteKey('${key}')">🗑</button>
             </td>
           `;
 

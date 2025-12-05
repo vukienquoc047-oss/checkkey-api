@@ -24,7 +24,7 @@ function saveKeys(data) {
 }
 
 /* =======================
-   RANDOM 10–15 CHARACTERS
+   RANDOM KEY
 ========================*/
 function randomKeySegment() {
     const len = Math.floor(Math.random() * 6) + 10;
@@ -38,31 +38,16 @@ function randomKeySegment() {
 const FIXED_ID = "QUOCDZJ2K2";
 
 /* =======================
-   GET EXPIRE DATE (ISO + UTC+7)
+   MAP THỜI GIAN
 ========================*/
-function getExpireDate(duration) {
-    const daysMap = {
-        "1DAY": 1,
-        "7DAY": 7,
-        "30DAY": 30,
-        "90DAY": 90,
-        "365DAY": 365
-    };
+const daysMap = {
+    "1DAY": 1,
+    "7DAY": 7,
+    "30DAY": 30,
+    "90DAY": 90,
+    "365DAY": 365
+};
 
-    const days = daysMap[duration] || 1;
-
-    // thời điểm hiện tại (UTC)
-    const now = new Date();
-
-    // cộng thêm số ngày
-    now.setUTCDate(now.getUTCDate() + days);
-
-    // chuyển sang giờ VN
-    const expire = new Date(now.getTime() + 7 * 3600 * 1000);
-
-    // TRẢ VỀ ĐÚNG DẠNG ISO → JS PARSE CHUẨN
-    return expire.toISOString();
-}
 
 /* =======================
    CHECK KEY
@@ -81,31 +66,54 @@ app.post("/api/check", (req, res) => {
     if (db[key].locked)
         return res.json({ status: "error", msg: "Key bị khóa!" });
 
-    // PARSE NGÀY HẾT HẠN CHUẨN
-    const expireAt = new Date(db[key].expireAt);
-    const nowVN = new Date(Date.now() + 7 * 3600 * 1000);
+    const now = new Date();
 
-    if (nowVN > expireAt)
-        return res.json({ status: "error", msg: "Key đã hết hạn!" });
-
+    // =====================
     // KÍCH HOẠT LẦN ĐẦU
+    // =====================
     if (!db[key].hwid) {
         db[key].hwid = hwid;
 
+        const days = daysMap[db[key].duration] || 1;
+
+        const expire = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+        db[key].expireAt = expire.toISOString();
+        db[key].activatedAt = now.toISOString();
+
         db[key].history.push({
-            time: new Date().toISOString(),
+            time: now.toISOString(),
             action: "activate",
             status: "success"
         });
 
         saveKeys(db);
-        return res.json({ status: "success", msg: "Kích hoạt thành công!" });
+
+        return res.json({
+            status: "success",
+            msg: "Kích hoạt thành công!",
+            expireAt: db[key].expireAt
+        });
     }
 
+    // =====================
+    // KHÔNG TRÙNG HWID
+    // =====================
     if (db[key].hwid !== hwid)
         return res.json({ status: "error", msg: "Key đã kích hoạt trên máy khác!" });
 
-    return res.json({ status: "success", msg: "Key hợp lệ!" });
+    // =====================
+    // KIỂM TRA HẾT HẠN
+    // =====================
+    const expireAt = new Date(db[key].expireAt);
+
+    if (now > expireAt)
+        return res.json({ status: "error", msg: "Key đã hết hạn!" });
+
+    return res.json({
+        status: "success",
+        msg: "Key hợp lệ",
+        expireAt: db[key].expireAt
+    });
 });
 
 /* =======================
@@ -126,7 +134,8 @@ app.post("/api/create", (req, res) => {
 
         db[key] = {
             duration,
-            expireAt: getExpireDate(duration), // ISO format chuẩn
+            expireAt: null,        // ❗ CHƯA KÍCH HOẠT → CHƯA CÓ HẠN
+            activatedAt: null,
             hwid: null,
             locked: false,
             note: note || "",
@@ -194,6 +203,9 @@ app.post("/api/key/reset-hwid", (req, res) => {
         return res.json({ success: false, message: "Key không tồn tại!" });
 
     db[key].hwid = null;
+    db[key].activatedAt = null;
+    db[key].expireAt = null;
+
     db[key].history.push({
         time: new Date().toISOString(),
         action: "reset-hwid",
@@ -212,7 +224,13 @@ app.post("/api/key/renew", (req, res) => {
         return res.json({ success: false, message: "Key không tồn tại!" });
 
     db[key].duration = duration;
-    db[key].expireAt = getExpireDate(duration);
+
+    if (db[key].activatedAt) {
+        const now = new Date();
+        const days = daysMap[duration] || 1;
+        const expire = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+        db[key].expireAt = expire.toISOString();
+    }
 
     db[key].history.push({
         time: new Date().toISOString(),

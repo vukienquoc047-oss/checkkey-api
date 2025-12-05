@@ -41,7 +41,7 @@ function randomKeySegment() {
 const FIXED_ID = "QUOCDZJ2K2";
 
 // ======================================
-// TÍNH NGÀY HẾT HẠN theo duration
+// ⭐ HÀM TÍNH NGÀY HẾT HẠN UTC+7 (CHUẨN CHÍNH XÁC)
 // ======================================
 function getExpireDate(duration) {
     const now = new Date();
@@ -57,7 +57,18 @@ function getExpireDate(duration) {
     const addDays = daysMap[duration] || 1;
     now.setDate(now.getDate() + addDays);
 
-    return now.toLocaleString(); // dạng 12/2/2025, 14:00:00
+    // Tính sang múi giờ Việt Nam (UTC+7)
+    const vn = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+
+    const yyyy = vn.getFullYear();
+    const mm = String(vn.getMonth() + 1).padStart(2, "0");
+    const dd = String(vn.getDate()).padStart(2, "0");
+
+    const hh = String(vn.getHours()).padStart(2, "0");
+    const mi = String(vn.getMinutes()).padStart(2, "0");
+    const ss = String(vn.getSeconds()).padStart(2, "0");
+
+    return `${dd}/${mm}/${yyyy}, ${hh}:${mi}:${ss}`;
 }
 
 // ======================================
@@ -71,11 +82,11 @@ app.post("/api/check", (req, res) => {
     if (!db[key]) return res.json({ status: "error", msg: "Key không tồn tại!" });
     if (db[key].locked) return res.json({ status: "error", msg: "Key bị khóa!" });
 
-    // CHECK HẾT HẠN
-    const expireAt = new Date(db[key].expireAt);
-    const now = new Date();
+    // CHECK HẾT HẠN theo GMT+7
+    const expireAt = new Date(new Date(db[key].expireAt).getTime());
+    const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000);
 
-    if (now > expireAt) {
+    if (nowVN > expireAt) {
         return res.json({ status: "error", msg: "Key đã hết hạn!" });
     }
 
@@ -84,7 +95,11 @@ app.post("/api/check", (req, res) => {
     // Kích hoạt lần đầu
     if (!db[key].hwid) {
         db[key].hwid = hwid;
-        db[key].history.push({ time: new Date().toLocaleString(), action: "activate", status: "success" });
+        db[key].history.push({
+            time: getExpireDate("0DAY"),
+            action: "activate",
+            status: "success"
+        });
         saveKeys(db);
         return res.json({ status: "success", msg: "Kích hoạt thành công!" });
     }
@@ -97,7 +112,7 @@ app.post("/api/check", (req, res) => {
 });
 
 // ======================================
-// CREATE KEY (SỬA ĐÚNG FORMAT + expireAt)
+// CREATE KEY
 // ======================================
 app.post("/api/create", (req, res) => {
     let { duration, amount, note } = req.body;
@@ -110,18 +125,20 @@ app.post("/api/create", (req, res) => {
     const created = [];
 
     for (let i = 0; i < amount; i++) {
-
-        // 🎯 FORMAT KEY MỚI
         const key = `${duration}-${FIXED_ID}-${randomKeySegment()}`;
 
         db[key] = {
             duration,
-            expireAt: getExpireDate(duration), // ⭐ NGÀY HẾT HẠN
+            expireAt: getExpireDate(duration),
             hwid: null,
             locked: false,
             note: note || "",
             history: [
-                { time: new Date().toLocaleString(), action: "create", status: "ok" }
+                {
+                    time: getExpireDate("0DAY"),
+                    action: "create",
+                    status: "ok"
+                }
             ]
         };
 
@@ -133,7 +150,7 @@ app.post("/api/create", (req, res) => {
 });
 
 // ======================================
-// API KHÁC GIỮ NGUYÊN
+// API KHÁC
 // ======================================
 app.get("/api/keys", (req, res) => {
     const db = loadKeys();
@@ -159,7 +176,7 @@ app.post("/api/key/lock", (req, res) => {
     db[key].locked = true;
 
     db[key].history.push({
-        time: new Date().toLocaleString(),
+        time: getExpireDate("0DAY"),
         action: "lock",
         note: reason || "",
         status: "locked"
@@ -178,7 +195,7 @@ app.post("/api/key/reset-hwid", (req, res) => {
     db[key].hwid = null;
 
     db[key].history.push({
-        time: new Date().toLocaleString(),
+        time: getExpireDate("0DAY"),
         action: "reset-hwid",
         status: "ok"
     });
@@ -194,10 +211,10 @@ app.post("/api/key/renew", (req, res) => {
     if (!db[key]) return res.json({ success: false, message: "Key không tồn tại!" });
 
     db[key].duration = duration;
-    db[key].expireAt = getExpireDate(duration); // ⭐ GIA HẠN LẠI NGÀY HẾT HẠN
+    db[key].expireAt = getExpireDate(duration);
 
     db[key].history.push({
-        time: new Date().toLocaleString(),
+        time: getExpireDate("0DAY"),
         action: "renew",
         note: duration,
         status: "ok"

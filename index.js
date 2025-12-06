@@ -38,7 +38,7 @@ function randomKeySegment() {
 const FIXED_ID = "QUOCDZJ2K2";
 
 /* =======================
-   PARSE DURATION (HỖ TRỢ 1d / 1DAY)
+   PARSE DURATION
 ========================*/
 function parseDuration(text) {
     if (!text) return 1;
@@ -55,7 +55,6 @@ function parseDuration(text) {
 
     if (map[text]) return map[text];
 
-    // fallback auto: parse số
     const m = text.match(/(\d+)/);
     if (m) return parseInt(m[1]);
 
@@ -66,13 +65,11 @@ function parseDuration(text) {
    TIME FORMAT FUNCTIONS
 ========================*/
 
-// Convert ISO UTC → Date VN
 function toVNDate(iso) {
     const d = new Date(iso);
     return new Date(d.getTime() + 7 * 3600 * 1000);
 }
 
-// Format: DD/MM/YYYY HH:mm (GMT+7)
 function formatVN(iso) {
     const d = toVNDate(iso);
     const day = String(d.getDate()).padStart(2, "0");
@@ -83,7 +80,6 @@ function formatVN(iso) {
     return `${day}/${month}/${year} ${h}:${m} (GMT+7)`;
 }
 
-// Thời gian còn lại
 function timeLeft(iso) {
     const now = new Date();
     const ex = new Date(iso);
@@ -121,9 +117,6 @@ app.post("/api/check", (req, res) => {
 
     const now = new Date();
 
-    // =====================
-    // KÍCH HOẠT LẦN ĐẦU
-    // =====================
     if (!db[key].hwid) {
         db[key].hwid = hwid;
 
@@ -150,15 +143,9 @@ app.post("/api/check", (req, res) => {
         });
     }
 
-    // =====================
-    // SAI HWID
-    // =====================
     if (db[key].hwid !== hwid)
         return res.json({ status: "error", msg: "Key đã kích hoạt trên máy khác!" });
 
-    // =====================
-    // KIỂM TRA HẾT HẠN
-    // =====================
     const expireAt = new Date(db[key].expireAt);
 
     if (now > expireAt)
@@ -183,7 +170,7 @@ app.post("/api/create", (req, res) => {
     if (!duration || !amount || amount < 1)
         return res.json({ success: false, message: "Thiếu dữ liệu!" });
 
-    duration = duration.toUpperCase(); // chuẩn hóa
+    duration = duration.toUpperCase();
 
     const db = loadKeys();
     const created = [];
@@ -215,7 +202,7 @@ app.post("/api/create", (req, res) => {
 });
 
 /* =======================
-   GET ALL KEYS (WITH FORMATTED_TIME)
+   GET ALL KEYS
 ========================*/
 app.get("/api/keys", (req, res) => {
     const db = loadKeys();
@@ -274,7 +261,7 @@ app.post("/api/key/lock", (req, res) => {
 });
 
 /* =======================
-   RESET HWID
+   RESET HWID (TRỪ 1 GIỜ)
 ========================*/
 app.post("/api/key/reset-hwid", (req, res) => {
     const { key } = req.body;
@@ -283,18 +270,34 @@ app.post("/api/key/reset-hwid", (req, res) => {
     if (!db[key])
         return res.json({ success: false, message: "Key không tồn tại!" });
 
+    if (!db[key].expireAt)
+        return res.json({ success: false, message: "Key chưa kích hoạt, không thể reset HWID!" });
+
     db[key].hwid = null;
-    db[key].activatedAt = null;
-    db[key].expireAt = null;
+
+    const ONE_HOUR = 60 * 60 * 1000;
+    let expire = new Date(db[key].expireAt).getTime() - ONE_HOUR;
+
+    if (expire < Date.now()) expire = Date.now();
+
+    db[key].expireAt = new Date(expire).toISOString();
 
     db[key].history.push({
         time: new Date().toISOString(),
         action: "reset-hwid",
+        note: "-1 giờ",
         status: "ok"
     });
 
     saveKeys(db);
-    res.json({ success: true, message: "Reset HWID thành công!" });
+
+    res.json({
+        success: true,
+        message: "Reset HWID thành công! Đã trừ 1 giờ.",
+        expireAt: db[key].expireAt,
+        expireAtVN: formatVN(db[key].expireAt),
+        timeLeft: timeLeft(db[key].expireAt)
+    });
 });
 
 /* =======================
